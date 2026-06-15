@@ -1,30 +1,20 @@
 var Vector2=function(a,b){this.x=a||0,this.y=b||0};Vector2.prototype={reset:function(a,b){return this.x=a,this.y=b,this},toString:function(a){a=a||3;var b=Math.pow(10,a);return"["+Math.round(this.x*b)/b+", "+Math.round(this.y*b)/b+"]"},clone:function(){return new Vector2(this.x,this.y)},copyTo:function(a){a.x=this.x,a.y=this.y},copyFrom:function(a){this.x=a.x,this.y=a.y},magnitude:function(){return Math.sqrt(this.x*this.x+this.y*this.y)},magnitudeSquared:function(){return this.x*this.x+this.y*this.y},normalise:function(){var a=this.magnitude();return this.x=this.x/a,this.y=this.y/a,this},reverse:function(){return this.x=-this.x,this.y=-this.y,this},plusEq:function(a){return this.x+=a.x,this.y+=a.y,this},plusNew:function(a){return new Vector2(this.x+a.x,this.y+a.y)},minusEq:function(a){return this.x-=a.x,this.y-=a.y,this},minusNew:function(a){return new Vector2(this.x-a.x,this.y-a.y)},multiplyEq:function(a){return this.x*=a,this.y*=a,this},multiplyNew:function(a){var b=this.clone();return b.multiplyEq(a)},divideEq:function(a){return this.x/=a,this.y/=a,this},divideNew:function(a){var b=this.clone();return b.divideEq(a)},dot:function(a){return this.x*a.x+this.y*a.y},angle:function(a){return Math.atan2(this.y,this.x)*(a?1:Vector2Const.TO_DEGREES)},rotate:function(a,b){var c=Math.cos(a*(b?1:Vector2Const.TO_RADIANS)),d=Math.sin(a*(b?1:Vector2Const.TO_RADIANS));return Vector2Const.temp.copyFrom(this),this.x=Vector2Const.temp.x*c-Vector2Const.temp.y*d,this.y=Vector2Const.temp.x*d+Vector2Const.temp.y*c,this},equals:function(a){return this.x==a.x&&this.y==a.x},isCloseTo:function(a,b){return!!this.equals(a)||(Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.magnitudeSquared()<b*b)},rotateAroundPoint:function(a,b,c){Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.rotate(b,c),Vector2Const.temp.plusEq(a),this.copyFrom(Vector2Const.temp)},isMagLessThan:function(a){return this.magnitudeSquared()<a*a},isMagGreaterThan:function(a){return this.magnitudeSquared()>a*a}},Vector2Const={TO_DEGREES:180/Math.PI,TO_RADIANS:Math.PI/180,temp:new Vector2};
 
-// ============ TAM LOGLU SPECTATE BOT ============
+// ============ DÜZELTİLMİŞ - handleWsMessage KULLAN ============
 window.Bots = [];
 window.started = false;
 window.botCount = 2;
 
-console.log("🔵 [1] Kod yüklendi, hazır");
-
 window.start = () => {
-    console.log("🔵 [2] window.start() çağrıldı");
-    
-    if(window.started) {
-        console.log("🔴 [3] Zaten başlamış, çıkılıyor");
-        return;
-    }
+    if(window.started) return;
     window.started = true;
-    console.log("🔵 [4] started = true");
     
     const sitekey = "0x4AAAAAAA_Q-HKZIZaP8Hof";
     const serverUrl = "server.z2se.in:5556";
     const key = "4e8103be8";
-    console.log(`🔵 [5] sitekey: ${sitekey}, serverUrl: ${serverUrl}, key: ${key}`);
     
     class SpectateBot {
         constructor(token, id) {
-            console.log(`🔵 [Bot${id}] Constructor çağrıldı, token: ${token.substring(0, 20)}...`);
             this.token = token;
             this.id = id;
             this.connect();
@@ -32,131 +22,80 @@ window.start = () => {
         
         connect() {
             const url = `wss://${serverUrl}?key=${key}&recaptcha=${this.token}`;
-            console.log(`🔵 [Bot${this.id}] WebSocket bağlantısı: ${url.substring(0, 80)}...`);
             this.ws = new WebSocket(url);
             this.ws.binaryType = "arraybuffer";
             this.ws.onopen = () => this.onOpen();
             this.ws.onmessage = (e) => this.onMessage(e);
-            this.ws.onclose = (e) => console.log(`🔴 [Bot${this.id}] Kapandı: ${e.code}`);
-            this.ws.onerror = (e) => console.log(`🔴 [Bot${this.id}] Hata:`, e);
+            this.ws.onclose = () => console.log(`Bot ${this.id} kapandı`);
         }
         
         Buffer(size) { return new DataView(new ArrayBuffer(size)); }
         
-        send(view) { 
-            if(this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.send(view.buffer);
-                console.log(`🔵 [Bot${this.id}] Veri gönderildi, opcode: ${view.getUint8(0)}`);
-            }
-        }
+        send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
         
-        sendUint8(op) { 
-            console.log(`🔵 [Bot${this.id}] sendUint8 çağrıldı, opcode: ${op}`);
-            let m = this.Buffer(1); 
-            m.setUint8(0, op); 
-            this.send(m); 
-        }
+        sendUint8(op) { let m = this.Buffer(1); m.setUint8(0, op); this.send(m); }
         
         sendCaptcha(token) {
-            console.log(`🔵 [Bot${this.id}] sendCaptcha başladı, token uzunluğu: ${token.length}`);
             let m = this.Buffer(1 + token.length * 2);
             m.setUint8(0, 35);
             for(let i = 0; i < token.length; i++) {
                 m.setUint16(1 + i * 2, token.charCodeAt(i), true);
             }
             this.send(m);
-            console.log(`🔵 [Bot${this.id}] sendCaptcha tamamlandı`);
         }
         
         onOpen() {
-            console.log(`🟢 [Bot${this.id}] WebSocket AÇILDI!`);
+            console.log(`✅ Bot ${this.id} bağlandı`);
             
-            console.log(`🔵 [Bot${this.id}] Handshake 254 gönderiliyor...`);
             let m = this.Buffer(5);
             m.setUint8(0, 254);
             m.setUint32(1, 5, true);
             this.send(m);
             
-            console.log(`🔵 [Bot${this.id}] Handshake 255 gönderiliyor...`);
             m = this.Buffer(5);
             m.setUint8(0, 255);
             m.setUint32(1, 123456789, true);
             this.send(m);
             
-            console.log(`🔵 [Bot${this.id}] Captcha gönderiliyor...`);
             this.sendCaptcha(this.token);
             
-            console.log(`🔵 [Bot${this.id}] 100ms sonra spectate gönderilecek`);
             setTimeout(() => {
-                console.log(`🔵 [Bot${this.id}] Spectate gönderiliyor (opcode 1)`);
                 this.sendUint8(1);
+                console.log(`👁️ Bot ${this.id} spectate modunda`);
             }, 100);
         }
         
         onMessage(event) {
-            console.log(`🟡 [Bot${this.id}] MESAJ GELDİ! Boyut: ${event.data.byteLength} byte`);
-            let v = new DataView(event.data);
-            let off = 0;
-            if(v.getUint8(off) === 240) {
-                console.log(`🔵 [Bot${this.id}] 240 opcode atlandı`);
-                off += 5;
+            // OYUNUN KENDİ onWsMessage FONKSİYONUNU ÇAĞIR
+            if(typeof onWsMessage === 'function') {
+                onWsMessage({ data: event.data });
+            } 
+            // Alternatif: handleWsMessage
+            else if(typeof handleWsMessage === 'function') {
+                handleWsMessage(new DataView(event.data));
             }
-            
-            let op = v.getUint8(off++);
-            console.log(`🟡 [Bot${this.id}] Opcode: ${op}`);
-            
-            if(op === 16) {
-                console.log(`🟢🟢🟢 [Bot${this.id}] OPCODE 16 (updateNodes) YAKALANDI! 🟢🟢🟢`);
-                console.log(`🔵 [Bot${this.id}] updateNodes fonksiyonu var mı? ${typeof updateNodes === 'function' ? 'EVET' : 'HAYIR'}`);
-                
-                if(typeof updateNodes === 'function') {
-                    console.log(`🔵 [Bot${this.id}] updateNodes çağrılıyor...`);
-                    updateNodes(v, off);
-                    console.log(`🔵 [Bot${this.id}] updateNodes çağrısı tamamlandı`);
-                    
-                    // Oyunun global dizilerini kontrol et
-                    console.log(`🔵 [Bot${this.id}] nodelist uzunluğu: ${window.nodelist ? window.nodelist.length : 'tanımsız'}`);
-                    console.log(`🔵 [Bot${this.id}] nodesOnScreen uzunluğu: ${window.nodesOnScreen ? window.nodesOnScreen.length : 'tanımsız'}`);
-                    console.log(`🔵 [Bot${this.id}] playerCells uzunluğu: ${window.playerCells ? window.playerCells.length : 'tanımsız'}`);
-                    
-                    if(window.nodelist && window.nodelist.length > 0) {
-                        console.log(`🟢🟢🟢 [Bot${this.id}] nodelist'te ${window.nodelist.length} oyuncu VAR! 🟢🟢🟢`);
-                        window.nodelist.slice(0, 5).forEach((node, idx) => {
-                            console.log(`   Oyuncu ${idx}: ${node.name} (${node.size})`);
-                        });
-                    } else {
-                        console.log(`🔴 [Bot${this.id}] nodelist BOŞ! Oyuncu eklenemedi!`);
-                    }
-                } else {
-                    console.log(`🔴🔴🔴 [Bot${this.id}] updateNodes FONKSİYONU BULUNAMADI! 🔴🔴🔴`);
-                }
-            } else {
-                console.log(`🔵 [Bot${this.id}] Opcode ${op} işlenmedi`);
+            else {
+                console.log(`⚠️ Bot ${this.id}: Mesaj işleyici bulunamadı!`);
             }
         }
     }
     
-    console.log("🔵 [6] Turnstile container oluşturuluyor...");
+    // Turnstile container
     let container = document.createElement("div");
     container.id = "turnstile-spectate";
     container.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:999999;background:white;padding:10px;border-radius:5px;z-index:99999";
     document.body.appendChild(container);
-    console.log("🔵 [7] Turnstile container eklendi");
     
     if(typeof turnstile === 'undefined') {
-        console.log("🔵 [8] Turnstile yükleniyor...");
         let script = document.createElement("script");
         script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
         script.onload = () => {
-            console.log("🟢 [9] Turnstile yüklendi!");
             turnstile.render("#turnstile-spectate", {
                 sitekey: sitekey,
                 callback: (token) => {
-                    console.log(`🟢 [10] Turnstile token alındı! Uzunluk: ${token.length}`);
                     container.innerHTML = "✅ Spectate başladı!";
                     for(let i = 0; i < window.botCount; i++) {
                         setTimeout(() => {
-                            console.log(`🔵 [11] Bot ${i} oluşturuluyor...`);
                             window.Bots.push(new SpectateBot(token, i));
                         }, i * 500);
                     }
@@ -165,15 +104,12 @@ window.start = () => {
         };
         document.head.appendChild(script);
     } else {
-        console.log("🟢 [8] Turnstile zaten yüklü");
         turnstile.render("#turnstile-spectate", {
             sitekey: sitekey,
             callback: (token) => {
-                console.log(`🟢 [9] Turnstile token alındı! Uzunluk: ${token.length}`);
                 container.innerHTML = "✅ Spectate başladı!";
                 for(let i = 0; i < window.botCount; i++) {
                     setTimeout(() => {
-                        console.log(`🔵 [10] Bot ${i} oluşturuluyor...`);
                         window.Bots.push(new SpectateBot(token, i));
                     }, i * 500);
                 }
@@ -183,19 +119,13 @@ window.start = () => {
 };
 
 document.addEventListener("keydown", (e) => {
-    console.log(`🔵 [0] Tuş basıldı: ${e.key}`);
     if(e.key === "\"") {
         e.preventDefault();
-        console.log("🔵 [0] Çift tırnak algılandı, window.start() çağrılıyor...");
-        if(!window.started) {
-            window.start();
-        } else {
-            console.log("🔴 [0] Zaten başlamış");
-        }
+        if(!window.started) window.start();
     }
 });
 
-console.log("🟢 HAZIR! \" tuşuna bas");
+console.log('🟢 " tuşuna bas, Turnstile\'i doğrula');
 
 var Pa="#000000";
 
