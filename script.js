@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - KAMERA HARİTA ORTASINDA SABİT ============
+// ============ 3 BOT - SADECE OYUNCU EKLE, KAMERA DOKUNMA ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -876,6 +876,31 @@ window.MultiSpectate = {
     active: false,
     tokens: [],
     completedCount: 0
+};
+
+// Orijinal updateNodes'u yedekle
+let originalUpdateNodes = updateNodes;
+
+// updateNodes'u değiştir - kamera değişkenlerini koru
+updateNodes = function(view, offset) {
+    // Kamera değişkenlerini yedekle
+    let saved = {
+        nodeX: nodeX,
+        nodeY: nodeY,
+        viewZoom: viewZoom,
+        posX: posX,
+        posY: posY
+    };
+    
+    // Orijinal updateNodes'u çağır
+    originalUpdateNodes(view, offset);
+    
+    // Kamera değişkenlerini geri yükle
+    nodeX = saved.nodeX;
+    nodeY = saved.nodeY;
+    viewZoom = saved.viewZoom;
+    posX = saved.posX;
+    posY = saved.posY;
 };
 
 class SpectateBot {
@@ -950,23 +975,9 @@ class SpectateBot {
         let op = v.getUint8(off++);
         
         if(op === 16) {
-            if(typeof updateNodes === 'function') {
-                // HARİTA ORTASINI KAYDET (ilk çağrıda)
-                if(window.mapCenterX === undefined && typeof rightPos !== 'undefined' && typeof leftPos !== 'undefined') {
-                    window.mapCenterX = (rightPos + leftPos) / 2;
-                    window.mapCenterY = (bottomPos + topPos) / 2;
-                    console.log(`🗺️ Harita merkezi: (${window.mapCenterX}, ${window.mapCenterY})`);
-                }
-                
-                // updateNodes'u çağır
-                updateNodes(v, off);
-                
-                // KAMERAYI HARİTA ORTASINA KİTLE
-                if(window.mapCenterX !== undefined) {
-                    nodeX = window.mapCenterX;
-                    nodeY = window.mapCenterY;
-                    viewZoom = 0.5;  // Sabit zoom, tüm haritayı göster
-                }
+            // Direkt orijinal updateNodes'u çağır (artık kamera korunuyor)
+            if(typeof originalUpdateNodes === 'function') {
+                originalUpdateNodes(v, off);
             }
         }
     }
@@ -1001,7 +1012,7 @@ function showNextTurnstile() {
     let container = document.createElement("div");
     container.id = `turnstile-bot-${currentIndex}`;
     container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
-    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex+1}. oyuncuyu izleyecek</small></div><div id="turnstile-${currentIndex}"></div>`;
+    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex+1}. oyuncuyu izleyecek (kamera sabit)</small></div><div id="turnstile-${currentIndex}"></div>`;
     document.body.appendChild(container);
     
     turnstile.render(`#turnstile-${currentIndex}`, {
@@ -1029,19 +1040,17 @@ document.addEventListener("keydown", (e) => {
     }
     if(e.key === "b") {
         e.preventDefault();
-        if(window.mapCenterX !== undefined) {
-            nodeX = window.mapCenterX;
-            nodeY = window.mapCenterY;
-            viewZoom = 0.5;
-            console.log("🗺️ Kamera harita merkezine sıfırlandı");
+        if(typeof viewZoom !== 'undefined') {
+            viewZoom = 0.4;
+            console.log("🗺️ Zoom yapıldı: 0.4");
         }
     }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
 console.log('   3 Turnstile doğrulaması yap, botlar başlasın');
-console.log('   KAMERA HARİTA ORTASINA KİTLENECEK!');
-console.log('   b tuşu: kamerayı harita merkezine sıfırlar');
+console.log('   KAMERA SABİT kalacak (updateNodes korunuyor)');
+console.log('   b tuşu: zoom yapar');
 
     function drawChatBoard() {
 		
