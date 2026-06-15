@@ -1,192 +1,5 @@
 var Vector2=function(a,b){this.x=a||0,this.y=b||0};Vector2.prototype={reset:function(a,b){return this.x=a,this.y=b,this},toString:function(a){a=a||3;var b=Math.pow(10,a);return"["+Math.round(this.x*b)/b+", "+Math.round(this.y*b)/b+"]"},clone:function(){return new Vector2(this.x,this.y)},copyTo:function(a){a.x=this.x,a.y=this.y},copyFrom:function(a){this.x=a.x,this.y=a.y},magnitude:function(){return Math.sqrt(this.x*this.x+this.y*this.y)},magnitudeSquared:function(){return this.x*this.x+this.y*this.y},normalise:function(){var a=this.magnitude();return this.x=this.x/a,this.y=this.y/a,this},reverse:function(){return this.x=-this.x,this.y=-this.y,this},plusEq:function(a){return this.x+=a.x,this.y+=a.y,this},plusNew:function(a){return new Vector2(this.x+a.x,this.y+a.y)},minusEq:function(a){return this.x-=a.x,this.y-=a.y,this},minusNew:function(a){return new Vector2(this.x-a.x,this.y-a.y)},multiplyEq:function(a){return this.x*=a,this.y*=a,this},multiplyNew:function(a){var b=this.clone();return b.multiplyEq(a)},divideEq:function(a){return this.x/=a,this.y/=a,this},divideNew:function(a){var b=this.clone();return b.divideEq(a)},dot:function(a){return this.x*a.x+this.y*a.y},angle:function(a){return Math.atan2(this.y,this.x)*(a?1:Vector2Const.TO_DEGREES)},rotate:function(a,b){var c=Math.cos(a*(b?1:Vector2Const.TO_RADIANS)),d=Math.sin(a*(b?1:Vector2Const.TO_RADIANS));return Vector2Const.temp.copyFrom(this),this.x=Vector2Const.temp.x*c-Vector2Const.temp.y*d,this.y=Vector2Const.temp.x*d+Vector2Const.temp.y*c,this},equals:function(a){return this.x==a.x&&this.y==a.x},isCloseTo:function(a,b){return!!this.equals(a)||(Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.magnitudeSquared()<b*b)},rotateAroundPoint:function(a,b,c){Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.rotate(b,c),Vector2Const.temp.plusEq(a),this.copyFrom(Vector2Const.temp)},isMagLessThan:function(a){return this.magnitudeSquared()<a*a},isMagGreaterThan:function(a){return this.magnitudeSquared()>a*a}},Vector2Const={TO_DEGREES:180/Math.PI,TO_RADIANS:Math.PI/180,temp:new Vector2};
 
-// ============ KESİN ÇÖZÜM - Direkt nodelist'e ekle ============
-window.Bots = [];
-window.started = false;
-window.botCount = 2;
-
-window.start = () => {
-    if(window.started) return;
-    window.started = true;
-    
-    const sitekey = "0x4AAAAAAA_Q-HKZIZaP8Hof";
-    const serverUrl = "server.z2se.in:5556";
-    const key = "4e8103be8";
-    
-    class SpectateBot {
-        constructor(token, id) {
-            this.token = token;
-            this.id = id;
-            this.connect();
-        }
-        
-        connect() {
-            const url = `wss://${serverUrl}?key=${key}&recaptcha=${this.token}`;
-            this.ws = new WebSocket(url);
-            this.ws.binaryType = "arraybuffer";
-            this.ws.onopen = () => this.onOpen();
-            this.ws.onmessage = (e) => this.onMessage(e);
-            this.ws.onclose = () => console.log(`Bot ${this.id} kapandı`);
-        }
-        
-        Buffer(size) { return new DataView(new ArrayBuffer(size)); }
-        
-        send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
-        
-        sendUint8(op) { let m = this.Buffer(1); m.setUint8(0, op); this.send(m); }
-        
-        sendCaptcha(token) {
-            let m = this.Buffer(1 + token.length * 2);
-            m.setUint8(0, 35);
-            for(let i = 0; i < token.length; i++) {
-                m.setUint16(1 + i * 2, token.charCodeAt(i), true);
-            }
-            this.send(m);
-        }
-        
-        onOpen() {
-            console.log(`✅ Bot ${this.id} bağlandı`);
-            
-            let m = this.Buffer(5);
-            m.setUint8(0, 254);
-            m.setUint32(1, 5, true);
-            this.send(m);
-            
-            m = this.Buffer(5);
-            m.setUint8(0, 255);
-            m.setUint32(1, 123456789, true);
-            this.send(m);
-            
-            this.sendCaptcha(this.token);
-            
-            setTimeout(() => {
-                this.sendUint8(1);
-                console.log(`👁️ Bot ${this.id} spectate modunda`);
-            }, 100);
-        }
-        
-        onMessage(event) {
-            let v = new DataView(event.data);
-            let off = 0;
-            if(v.getUint8(off) === 240) off += 5;
-            
-            let op = v.getUint8(off++);
-            
-            if(op === 16) {
-                // DOĞRUDAN OYUNUN nodelist DİZİSİNE EKLE
-                this.addPlayersToGame(v, off);
-            }
-        }
-        
-        addPlayersToGame(view, offset) {
-            let queueLength = view.getUint16(offset, true);
-            offset += 2;
-            
-            // Ölümleri geç
-            for(let i = 0; i < queueLength; i++) {
-                offset += 8;
-            }
-            
-            // Oyuncuları oku
-            let playersAdded = 0;
-            while(true) {
-                let nodeId = view.getUint32(offset, true);
-                offset += 4;
-                if(nodeId === 0) break;
-                
-                let x = view.getInt16(offset, true); offset += 2;
-                let y = view.getInt16(offset, true); offset += 2;
-                let size = view.getInt16(offset, true); offset += 2;
-                let r = view.getUint8(offset++);
-                let g = view.getUint8(offset++);
-                let b = view.getUint8(offset++);
-                let color = "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
-                let flags = view.getUint8(offset++);
-                let isVirus = !!(flags & 1);
-                
-                if(flags & 2) offset += 4;
-                if(flags & 4) offset += 8;
-                if(flags & 8) offset += 16;
-                
-                let name = "";
-                let ch;
-                while((ch = view.getUint16(offset, true)) !== 0) {
-                    offset += 2;
-                    name += String.fromCharCode(ch);
-                }
-                offset += 2;
-                
-                if(!isVirus && name && name !== "UnnamedCell") {
-                    // DOĞRUDAN OYUNUN GLOBAL DİZİLERİNE EKLE
-                    if(typeof window.nodelist !== 'undefined' && typeof window.Cell !== 'undefined') {
-                        // Var mı kontrol et
-                        let exists = window.nodelist.some(node => node.id === nodeId);
-                        if(!exists) {
-                            let newCell = new window.Cell(nodeId, x, y, size, color, name);
-                            window.nodelist.push(newCell);
-                            window.nodes[nodeId] = newCell;
-                            if(window.nodesOnScreen) window.nodesOnScreen.push(nodeId);
-                            playersAdded++;
-                            console.log(`🎮 Bot${this.id} oyuncu eklendi: ${name} (${size})`);
-                        }
-                    } else {
-                        console.log(`⚠️ window.nodelist veya window.Cell bulunamadı!`);
-                    }
-                }
-            }
-            
-            if(playersAdded > 0) {
-                console.log(`✅ Bot${this.id} ${playersAdded} oyuncu ekledi!`);
-            }
-        }
-    }
-    
-    // Turnstile container
-    let container = document.createElement("div");
-    container.id = "turnstile-spectate";
-    container.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:999999;background:white;padding:10px;border-radius:5px;z-index:99999";
-    document.body.appendChild(container);
-    
-    if(typeof turnstile === 'undefined') {
-        let script = document.createElement("script");
-        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-        script.onload = () => {
-            turnstile.render("#turnstile-spectate", {
-                sitekey: sitekey,
-                callback: (token) => {
-                    container.innerHTML = "✅ Spectate başladı!";
-                    for(let i = 0; i < window.botCount; i++) {
-                        setTimeout(() => {
-                            window.Bots.push(new SpectateBot(token, i));
-                        }, i * 500);
-                    }
-                }
-            });
-        };
-        document.head.appendChild(script);
-    } else {
-        turnstile.render("#turnstile-spectate", {
-            sitekey: sitekey,
-            callback: (token) => {
-                container.innerHTML = "✅ Spectate başladı!";
-                for(let i = 0; i < window.botCount; i++) {
-                    setTimeout(() => {
-                        window.Bots.push(new SpectateBot(token, i));
-                    }, i * 500);
-                }
-            }
-        });
-    }
-};
-
-document.addEventListener("keydown", (e) => {
-    if(e.key === "\"") {
-        e.preventDefault();
-        if(!window.started) window.start();
-    }
-});
-
-console.log('🟢 " tuşuna bas, Turnstile\'i doğrula');
 var Pa="#000000";
 
 var virusImageArray = ["virus_orange.webp","virus_purple.webp"];
@@ -1052,7 +865,147 @@ function loadJS(FILE_URL) {
 		}
     }
 
-
+    // ============ BURAYA MULTI SPECTATE KODU (IIFE YOK) ============
+    console.log("[MultiSpectate] Başlatılıyor...");
+    
+    // Global değişkenler
+    window.MultiSpectate = {
+        bots: [],
+        started: false,
+        botCount: 2,
+        active: false
+    };
+    
+    class SpectateBot {
+        constructor(token, id) {
+            this.token = token;
+            this.id = id;
+            this.ws = null;
+            this.connect();
+        }
+        
+        connect() {
+            const key = "4e8103be8";
+            const url = `wss://server.z2se.in:5556?key=${key}&recaptcha=${this.token}`;
+            this.ws = new WebSocket(url);
+            this.ws.binaryType = "arraybuffer";
+            this.ws.onopen = () => this.onOpen();
+            this.ws.onmessage = (e) => this.onMessage(e);
+            this.ws.onclose = () => console.log(`[Bot${this.id}] Kapandı`);
+        }
+        
+        send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
+        
+        sendUint8(op) { let m = new DataView(new ArrayBuffer(1)); m.setUint8(0, op); this.send(m); }
+        
+        sendCaptcha(token) {
+            let m = new DataView(new ArrayBuffer(1 + token.length * 2));
+            m.setUint8(0, 35);
+            for(let i = 0; i < token.length; i++) {
+                m.setUint16(1 + i * 2, token.charCodeAt(i), true);
+            }
+            this.send(m);
+        }
+        
+        onOpen() {
+            console.log(`[Bot${this.id}] Bağlandı`);
+            
+            let m = new DataView(new ArrayBuffer(5));
+            m.setUint8(0, 254);
+            m.setUint32(1, 5, true);
+            this.send(m);
+            
+            m = new DataView(new ArrayBuffer(5));
+            m.setUint8(0, 255);
+            m.setUint32(1, 123456789, true);
+            this.send(m);
+            
+            this.sendCaptcha(this.token);
+            
+            setTimeout(() => {
+                this.sendUint8(1);
+                console.log(`[Bot${this.id}] Spectate modunda`);
+            }, 100);
+        }
+        
+        onMessage(event) {
+            // Artık aynı scope'ta olduğumuz için handleWsMessage'a direkt erişebiliriz
+            if(typeof handleWsMessage === 'function') {
+                handleWsMessage(new DataView(event.data));
+            }
+        }
+    }
+    
+    function startBots(token) {
+        window.MultiSpectate.bots = [];
+        for(let i = 0; i < window.MultiSpectate.botCount; i++) {
+            setTimeout(() => {
+                let bot = new SpectateBot(token, i);
+                window.MultiSpectate.bots.push(bot);
+            }, i * 500);
+        }
+        window.MultiSpectate.active = true;
+        console.log(`[MultiSpectate] ${window.MultiSpectate.botCount} bot başlatıldı`);
+    }
+    
+    function stopBots() {
+        window.MultiSpectate.bots.forEach(bot => {
+            if(bot.ws) bot.ws.close();
+        });
+        window.MultiSpectate.bots = [];
+        window.MultiSpectate.active = false;
+        console.log("[MultiSpectate] Botlar durduruldu");
+    }
+    
+    // Turnstile container
+    let container = document.createElement("div");
+    container.id = "multispectate-container";
+    container.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:999999;background:rgba(0,0,0,0.8);color:white;padding:10px;border-radius:5px;z-index:99999;font-size:12px";
+    container.innerHTML = '<div id="multispectate-turnstile"></div><div>Aktif Bot: <span id="multispectate-count">0</span></div><button id="multispectate-stop" style="margin-top:5px">Stop</button>';
+    document.body.appendChild(container);
+    
+    if(typeof turnstile !== 'undefined') {
+        turnstile.render("#multispectate-turnstile", {
+            sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
+            callback: (token) => {
+                document.getElementById("multispectate-turnstile").innerHTML = "✅ Aktif";
+                startBots(token);
+            }
+        });
+    }
+    
+    document.getElementById("multispectate-stop").onclick = stopBots;
+    
+    setInterval(() => {
+        let count = document.getElementById("multispectate-count");
+        if(count) count.innerHTML = window.MultiSpectate.bots.length;
+    }, 1000);
+    
+    // Tuş kontrolü
+    document.addEventListener("keydown", (e) => {
+        if(e.key === "\"") {
+            e.preventDefault();
+            if(!window.MultiSpectate.active) {
+                console.log("[MultiSpectate] Turnstile doğrulayın!");
+                let turnstileDiv = document.getElementById("multispectate-turnstile");
+                if(turnstileDiv && turnstileDiv.children.length === 0) {
+                    turnstile.render("#multispectate-turnstile", {
+                        sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
+                        callback: (token) => startBots(token)
+                    });
+                }
+            }
+        }
+        if(e.key === "b") {
+            e.preventDefault();
+            if(typeof zoom !== 'undefined') zoom = 0.4;
+            if(typeof setZoom === 'function') setZoom(false);
+            console.log("[MultiSpectate] Zoom yapıldı");
+        }
+    });
+    
+    console.log("[MultiSpectate] Hazır! \" tuşu ile başlatın");
+    // ============ MULTI SPECTATE KODU SONU ==========
 
     function drawChatBoard() {
 		
