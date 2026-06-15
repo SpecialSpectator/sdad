@@ -3,7 +3,7 @@ var Vector2=function(a,b){this.x=a||0,this.y=b||0};Vector2.prototype={reset:func
 // MULTI SPECTATE - updateNodes'u doğrudan çağır
 window.Bots = [];
 window.started = false;
-window.botCount = 4;
+window.botCount = 2;
 
 window.start = () => {
     if(window.started) return;
