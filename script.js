@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - SADECE OPDODE 16 (KAMERA DEĞİŞTİRENLER ENGELLENDİ) ============
+// ============ 3 BOT - SADECE OPDODE 17 ENGELLENDİ ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -949,24 +949,16 @@ class SpectateBot {
         
         let op = v.getUint8(off++);
         
-        // SADECE OPDODE 16 (updateNodes) - Kamera değiştiren 17,64 engellendi!
-        if(op === 16) {
-            if(typeof updateNodes === 'function') {
-                // Kamera değişkenlerini yedekle
-                let savedNodeX = nodeX;
-                let savedNodeY = nodeY;
-                let savedViewZoom = viewZoom;
-                
-                // Sadece updateNodes'u çağır
-                updateNodes(v, off);
-                
-                // Kamera değişkenlerini geri yükle
-                nodeX = savedNodeX;
-                nodeY = savedNodeY;
-                viewZoom = savedViewZoom;
-            }
+        // SADECE OPDODE 17'Yİ ENGELLE (update position)
+        if(op === 17) {
+            // Hiçbir şey yapma, sadece engelle
+            return;
         }
-        // Opcode 17 ve 64 İŞLENMEYECEK (kamera değişmez)
+        
+        // Diğer tüm opcode'ları normal işle
+        if(typeof handleWsMessage === 'function') {
+            handleWsMessage(new DataView(event.data));
+        }
     }
 }
 
@@ -976,14 +968,6 @@ function startAllBots() {
     console.log(`   Bot1: 2 spectate → 2. oyuncuyu izler`);
     console.log(`   Bot2: 3 spectate → 3. oyuncuyu izler\n`);
     
-    // Mevcut kamera değerlerini kaydet
-    window.savedCamera = {
-        nodeX: nodeX,
-        nodeY: nodeY,
-        viewZoom: viewZoom
-    };
-    console.log(`🔒 Kamera sabitlendi: nodeX=${nodeX}, nodeY=${nodeY}, zoom=${viewZoom}`);
-    
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
         setTimeout(() => {
@@ -992,15 +976,6 @@ function startAllBots() {
         }, i * 500);
     }
     window.MultiSpectate.active = true;
-}
-
-function resetCamera() {
-    if(window.savedCamera) {
-        nodeX = window.savedCamera.nodeX;
-        nodeY = window.savedCamera.nodeY;
-        viewZoom = window.savedCamera.viewZoom;
-        console.log(`🔄 Kamera sıfırlandı: nodeX=${nodeX}, nodeY=${nodeY}, zoom=${viewZoom}`);
-    }
 }
 
 function showNextTurnstile() {
@@ -1016,7 +991,7 @@ function showNextTurnstile() {
     let container = document.createElement("div");
     container.id = `turnstile-bot-${currentIndex}`;
     container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
-    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex+1}. oyuncuyu izleyecek (kamera sabit)</small></div><div id="turnstile-${currentIndex}"></div>`;
+    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex+1}. oyuncuyu izleyecek</small></div><div id="turnstile-${currentIndex}"></div>`;
     document.body.appendChild(container);
     
     turnstile.render(`#turnstile-${currentIndex}`, {
@@ -1042,26 +1017,12 @@ document.addEventListener("keydown", (e) => {
             showNextTurnstile();
         }
     }
-    if(e.key === "b") {
-        e.preventDefault();
-        if(typeof viewZoom !== 'undefined') {
-            viewZoom = 0.4;
-            console.log("🗺️ Zoom yapıldı: 0.4");
-        }
-    }
-    if(e.key === "r") {
-        e.preventDefault();
-        resetCamera();
-        console.log("🗺️ Kamera sıfırlandı!");
-    }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
 console.log('   3 Turnstile doğrulaması yap, botlar başlasın');
-console.log('   SADECE OPDODE 16 işlenecek (17 ve 64 engellendi)');
-console.log('   KAMERA SABİT kalacak!');
-console.log('   b tuşu: zoom yapar');
-console.log('   r tuşu: kamerayı sıfırlar');
+console.log('   SADECE OPDODE 17 (update position) ENGELLENDİ');
+console.log('   Diğer her şey normal çalışacak, oyuncular görünecek!');
 
     function drawChatBoard() {
 		
