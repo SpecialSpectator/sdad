@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 TURNSTILE DOĞRULAMASI - HEPSİ BİTİNCE BOTLAR BAŞLASIN ============
+// ============ 3 BOT - SADECE UPDATENODES (ZOOM SABİT) ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -882,7 +882,7 @@ class SpectateBot {
     constructor(token, id) {
         this.token = token;
         this.id = id;
-        this.specCount = id + 1;  // Bot0=1, Bot1=2, Bot2=3
+        this.specCount = id + 1;
         this.ws = null;
         this.connect();
     }
@@ -914,7 +914,6 @@ class SpectateBot {
         let m = new DataView(new ArrayBuffer(1));
         m.setUint8(0, 1);
         this.send(m);
-        console.log(`[Bot${this.id}] Spectate gönderildi (${this.specCount} kez) - ${this.specCount}. oyuncu için`);
     }
     
     sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -939,29 +938,47 @@ class SpectateBot {
                 this.spec();
                 await this.sleep(100);
             }
-            console.log(`[Bot${this.id}] Tamamlandı, ${this.specCount}. oyuncu izleniyor`);
+            console.log(`[Bot${this.id}] ${this.specCount} spectate gönderildi, ${this.specCount}. oyuncu izleniyor`);
         }, 2000);
     }
     
     onMessage(event) {
-        if(typeof handleWsMessage === 'function') {
-            handleWsMessage(new DataView(event.data));
+        let v = new DataView(event.data);
+        let off = 0;
+        if(v.getUint8(off) === 240) off += 5;
+        
+        let op = v.getUint8(off++);
+        
+        // SADECE UPDATENODES - zoom değiştiren opcode'ları atla
+        if(op === 16) {
+            if(typeof updateNodes === 'function') {
+                // Zoom'u geçici olarak koru
+                let savedZoom = zoom;
+                updateNodes(v, off);
+                zoom = savedZoom;  // Zoom'u geri yükle
+            }
         }
+        // 17, 64 gibi zoom değiştiren opcode'ları IŞLEME
     }
 }
 
 function startAllBots() {
-    console.log(`\n🟢🟢🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR... 🟢🟢🟢\n`);
-    console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
-    console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
-    console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
+    console.log(`\n🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR...\n`);
+    console.log(`   Bot0: 1 spectate → 1. oyuncuyu izler`);
+    console.log(`   Bot1: 2 spectate → 2. oyuncuyu izler`);
+    console.log(`   Bot2: 3 spectate → 3. oyuncuyu izler\n`);
+    
+    // Zoom'u sabitle
+    if(typeof zoom !== 'undefined') {
+        window.fixedZoom = zoom;
+        console.log(`🔒 Zoom sabitlendi: ${zoom}`);
+    }
     
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
         setTimeout(() => {
             let bot = new SpectateBot(window.MultiSpectate.tokens[i], i);
             window.MultiSpectate.bots.push(bot);
-            console.log(`✅ Bot${i} başlatıldı (${i+1}. oyuncu için)`);
         }, i * 500);
     }
     window.MultiSpectate.active = true;
@@ -977,11 +994,10 @@ function showNextTurnstile() {
     
     console.log(`\n🔵 [${currentIndex + 1}/${window.MultiSpectate.botCount}] Bot${currentIndex} için Turnstile doğrulaması...`);
     
-    // Container oluştur
     let container = document.createElement("div");
     container.id = `turnstile-bot-${currentIndex}`;
     container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
-    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})</div><div id="turnstile-${currentIndex}"></div>`;
+    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex+1}. oyuncuyu izleyecek</small></div><div id="turnstile-${currentIndex}"></div>`;
     document.body.appendChild(container);
     
     turnstile.render(`#turnstile-${currentIndex}`, {
@@ -990,11 +1006,7 @@ function showNextTurnstile() {
             console.log(`✅ Bot${currentIndex} için token alındı!`);
             window.MultiSpectate.tokens[currentIndex] = token;
             window.MultiSpectate.completedCount++;
-            
-            // Container'ı kaldır
             container.remove();
-            
-            // Sıradaki Turnstile'ı göster
             showNextTurnstile();
         }
     });
@@ -1009,26 +1021,23 @@ document.addEventListener("keydown", (e) => {
             window.MultiSpectate.completedCount = 0;
             window.MultiSpectate.tokens = [];
             showNextTurnstile();
-        } else if(window.MultiSpectate.active) {
-            console.log("Botlar zaten aktif!");
-        } else if(window.MultiSpectate.completedCount > 0) {
-            console.log(`Zaten ${window.MultiSpectate.completedCount} doğrulama yapıldı, devam ediyor...`);
         }
     }
     if(e.key === "b") {
         e.preventDefault();
-        if(typeof zoom !== 'undefined') zoom = 0.4;
-        if(typeof setZoom === 'function') setZoom(false);
-        console.log("🗺️ Zoom yapıldı");
+        if(typeof zoom !== 'undefined') {
+            zoom = 0.4;
+            console.log("🗺️ Zoom yapıldı: 0.4");
+        }
     }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
 console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
-console.log('   1. doğrulama → Bot0 (1. oyuncu)');
-console.log('   2. doğrulama → Bot1 (2. oyuncu)');
-console.log('   3. doğrulama → Bot2 (3. oyuncu)');
-console.log('   3 doğrulama tamamlanınca botlar otomatik başlayacak!');
+console.log('   1. doğrulama → Bot0 (1. oyuncuyu izler)');
+console.log('   2. doğrulama → Bot1 (2. oyuncuyu izler)');
+console.log('   3. doğrulama → Bot2 (3. oyuncuyu izler)');
+console.log('   3 doğrulama tamamlanınca botlar başlayacak ve ZOOM SABİT kalacak!');
 
     function drawChatBoard() {
 		
