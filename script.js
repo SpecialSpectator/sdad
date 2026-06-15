@@ -1,176 +1,112 @@
 var Vector2=function(a,b){this.x=a||0,this.y=b||0};Vector2.prototype={reset:function(a,b){return this.x=a,this.y=b,this},toString:function(a){a=a||3;var b=Math.pow(10,a);return"["+Math.round(this.x*b)/b+", "+Math.round(this.y*b)/b+"]"},clone:function(){return new Vector2(this.x,this.y)},copyTo:function(a){a.x=this.x,a.y=this.y},copyFrom:function(a){this.x=a.x,this.y=a.y},magnitude:function(){return Math.sqrt(this.x*this.x+this.y*this.y)},magnitudeSquared:function(){return this.x*this.x+this.y*this.y},normalise:function(){var a=this.magnitude();return this.x=this.x/a,this.y=this.y/a,this},reverse:function(){return this.x=-this.x,this.y=-this.y,this},plusEq:function(a){return this.x+=a.x,this.y+=a.y,this},plusNew:function(a){return new Vector2(this.x+a.x,this.y+a.y)},minusEq:function(a){return this.x-=a.x,this.y-=a.y,this},minusNew:function(a){return new Vector2(this.x-a.x,this.y-a.y)},multiplyEq:function(a){return this.x*=a,this.y*=a,this},multiplyNew:function(a){var b=this.clone();return b.multiplyEq(a)},divideEq:function(a){return this.x/=a,this.y/=a,this},divideNew:function(a){var b=this.clone();return b.divideEq(a)},dot:function(a){return this.x*a.x+this.y*a.y},angle:function(a){return Math.atan2(this.y,this.x)*(a?1:Vector2Const.TO_DEGREES)},rotate:function(a,b){var c=Math.cos(a*(b?1:Vector2Const.TO_RADIANS)),d=Math.sin(a*(b?1:Vector2Const.TO_RADIANS));return Vector2Const.temp.copyFrom(this),this.x=Vector2Const.temp.x*c-Vector2Const.temp.y*d,this.y=Vector2Const.temp.x*d+Vector2Const.temp.y*c,this},equals:function(a){return this.x==a.x&&this.y==a.x},isCloseTo:function(a,b){return!!this.equals(a)||(Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.magnitudeSquared()<b*b)},rotateAroundPoint:function(a,b,c){Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.rotate(b,c),Vector2Const.temp.plusEq(a),this.copyFrom(Vector2Const.temp)},isMagLessThan:function(a){return this.magnitudeSquared()<a*a},isMagGreaterThan:function(a){return this.magnitudeSquared()>a*a}},Vector2Const={TO_DEGREES:180/Math.PI,TO_RADIANS:Math.PI/180,temp:new Vector2};
 
-(function() {
-    const BOT_SITEKEY = "0x4AAAAAAA_Q-HKZIZaP8Hof";
-    const BOT_KEY = "4e8103be8";
-    
-    window.spectateBots = [];
-    window.botCount = 2;
-    window.botActive = false;
+window.Bots = [];
+window.started = false;
+window.botCount = 2;
+
+window.start = () => {
+    window.started = true;
+    const sitekey = "0x4AAAAAAA_Q-HKZIZaP8Hof";
+    const serverUrl = "server.z2se.in:5556";
+    const key = "4e8103be8";
     
     class SpectateBot {
         constructor(token, id) {
-            this.id = id;
             this.token = token;
-            this.ws = null;
+            this.id = id;
             this.connect();
         }
         
         connect() {
-            const url = `wss://server.z2se.in:5556?key=${BOT_KEY}&recaptcha=${this.token}`;
+            const url = `wss://${serverUrl}?key=${key}&recaptcha=${this.token}`;
             this.ws = new WebSocket(url);
             this.ws.binaryType = "arraybuffer";
-            this.ws.onopen = () => this.onOpen();
-            this.ws.onmessage = (e) => this.onMessage(e);
-            this.ws.onclose = () => console.log(`❌ SpectateBot ${this.id} kapandı`);
-            this.ws.onerror = () => console.log(`⚠️ SpectateBot ${this.id} hata`);
+            this.ws.onmessage = this.onMessage.bind(this);
+            this.ws.onopen = this.onOpen.bind(this);
+            this.ws.onclose = this.onClose.bind(this);
         }
         
-        prepareData(size) { return new DataView(new ArrayBuffer(size)); }
+        Buffer(size) { return new DataView(new ArrayBuffer(size)); }
         
         send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
         
-        sendUint8(op) { let m = this.prepareData(1); m.setUint8(0, op); this.send(m); }
+        spec() {
+            let m = this.Buffer(1);
+            m.setUint8(0, 1);
+            this.send(m);
+        }
+        
+        sendCaptcha(token) {
+            let m = this.Buffer(1 + token.length * 2);
+            m.setUint8(0, 35);
+            for(let i = 0; i < token.length; i++) {
+                m.setUint16(1 + i * 2, token.charCodeAt(i), true);
+            }
+            this.send(m);
+        }
         
         onOpen() {
-            console.log(`✅ SpectateBot ${this.id} bağlandı`);
+            console.log(`✅ Bot ${this.id} bağlandı`);
             
-            let m = this.prepareData(5);
+            let m = this.Buffer(5);
             m.setUint8(0, 254);
             m.setUint32(1, 5, true);
             this.send(m);
             
-            m = this.prepareData(5);
+            m = this.Buffer(5);
             m.setUint8(0, 255);
             m.setUint32(1, 123456789, true);
             this.send(m);
             
-            let name = `Spec_${this.id}`;
-            let nb = this.prepareData(1 + 2 * name.length);
-            nb.setUint8(0, 192);
-            for(let i=0; i<name.length; i++) nb.setUint16(1+2*i, name.charCodeAt(i), true);
-            this.send(nb);
+            this.sendCaptcha(this.token);
             
-            let hash = "10eb1d0a8";
-            let hb = this.prepareData(1 + 2 * hash.length);
-            hb.setUint8(0, 56);
-            for(let i=0; i<hash.length; i++) hb.setUint16(1+2*i, hash.charCodeAt(i), true);
-            this.send(hb);
-            
-            setTimeout(() => this.sendUint8(1), 100);
+            setTimeout(() => this.spec(), 100);
         }
         
-        onMessage(e) {
-            let v = new DataView(e.data);
-            let off = 0;
-            if(v.getUint8(off) === 240) off += 5;
-            
-            let op = v.getUint8(off++);
-            
-            if(op === 16) {
-                let len = v.getUint16(off, true);
-                off += 2;
-                for(let i=0; i<len; i++) off += 8;
-                
-                let players = [];
-                while(true) {
-                    let id = v.getUint32(off, true);
-                    off += 4;
-                    if(id === 0) break;
-                    
-                    let x = v.getInt16(off, true); off += 2;
-                    let y = v.getInt16(off, true); off += 2;
-                    let size = v.getInt16(off, true); off += 2;
-                    let r = v.getUint8(off++);
-                    let g = v.getUint8(off++);
-                    let b = v.getUint8(off++);
-                    let flags = v.getUint8(off++);
-                    let isVirus = !!(flags & 1);
-                    
-                    if(flags & 2) off += 4;
-                    if(flags & 4) off += 8;
-                    if(flags & 8) off += 16;
-                    
-                    let name = "";
-                    let ch;
-                    while((ch = v.getUint16(off, true)) !== 0) {
-                        off += 2;
-                        name += String.fromCharCode(ch);
-                    }
-                    off += 2;
-                    
-                    if(!isVirus && name) players.push({name, size});
-                }
-                
-                if(players.length > 0) {
-                    console.log(`🎮 Bot${this.id}: ${players.length} oyuncu`);
-                    players.slice(0,5).forEach(p => console.log(`   - ${p.name} (${p.size})`));
-                }
-                
-                let removed = v.getUint32(off, true);
-            }
-            
-            if(op === 49) {
-                let count = v.getUint32(off, true);
-                off += 4;
-                console.log(`📊 Bot${this.id} Lider:`);
-                for(let i=0; i<Math.min(count,10); i++) {
-                    let id = v.getUint32(off, true);
-                    off += 4;
-                    let name = "";
-                    let ch;
-                    while((ch = v.getUint16(off, true)) !== 0) {
-                        off += 2;
-                        name += String.fromCharCode(ch);
-                    }
-                    off += 2;
-                    if(name) console.log(`   ${i+1}. ${name}`);
-                }
+        onMessage(event) {
+            // DİĞER KODDAKİ GİBİ: OYUNUN KENDİ HANDLER'INI ÇAĞIR!
+            if(typeof handleWsMessage === 'function') {
+                handleWsMessage(new DataView(event.data));
+            } else {
+                console.log("handleWsMessage bulunamadı");
             }
         }
         
-        stop() { if(this.ws) this.ws.close(); }
+        onClose(e) { console.log(`❌ Bot ${this.id} kapandı:`, e.code); }
     }
     
-    function startSpectateBots(token) {
-        window.spectateBots = [];
-        for(let i=0; i<window.botCount; i++) {
-            setTimeout(() => {
-                window.spectateBots.push(new SpectateBot(token, i));
-            }, i * 300);
-        }
-        window.botActive = true;
-        console.log(`🤖 ${window.botCount} spectate bot başladı`);
+    let container = document.createElement("div");
+    container.id = "turnstile-multi";
+    container.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:999999;background:white;padding:10px;border-radius:5px;z-index:99999";
+    document.body.appendChild(container);
+    
+    if(typeof turnstile === 'undefined') {
+        let script = document.createElement("script");
+        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+        script.onload = () => {
+            turnstile.render("#turnstile-multi", {
+                sitekey: sitekey,
+                callback: (token) => {
+                    container.innerHTML = "✅ Botlar başlıyor...";
+                    for(let i = 0; i < window.botCount; i++) {
+                        setTimeout(() => {
+                            window.Bots.push(new SpectateBot(token, i));
+                        }, i * 500);
+                    }
+                }
+            });
+        };
+        document.head.appendChild(script);
     }
     
-    function stopSpectateBots() {
-        window.spectateBots.forEach(b => b.stop());
-        window.spectateBots = [];
-        window.botActive = false;
-        console.log("⛔ Spectate botlar durduruldu");
+    console.log(`🟢 ${window.botCount} spectate bot başlatılıyor...`);
+};
+
+document.addEventListener("keydown", (e) => {
+    if(e.key === "\"" && !window.started) {
+        window.start();
     }
-    
-    // Turnstile container ekle
-    let botContainer = document.createElement("div");
-    botContainer.id = "spectate-bot-container";
-    botContainer.style.cssText = "position:fixed;bottom:10px;left:10px;z-index:999999;background:rgba(0,0,0,0.7);color:white;padding:8px;border-radius:5px;font-size:12px;z-index:99999";
-    botContainer.innerHTML = '<div id="bot-turnstile"></div><button id="stopBotsBtn" style="margin-top:5px;display:none">Stop Bots</button>';
-    document.body.appendChild(botContainer);
-    
-    if(typeof turnstile !== 'undefined') {
-        turnstile.render("#bot-turnstile", {
-            sitekey: BOT_SITEKEY,
-            callback: (token) => {
-                botContainer.innerHTML = '<div>✅ Botlar aktif</div><button id="stopBotsBtn">Stop Bots</button>';
-                startSpectateBots(token);
-                document.getElementById("stopBotsBtn").onclick = stopSpectateBots;
-            }
-        });
-    }
-    
-    window.spectateControl = { start: () => location.reload(), stop: stopSpectateBots, setCount: (c) => window.botCount = c };
-    console.log("🟢 Spectate bot hazır - Sağ alttaki Turnstile'i doğrulayın");
-})();
+});
 
 var Pa="#000000";
 
