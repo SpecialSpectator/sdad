@@ -1,9 +1,9 @@
 var Vector2=function(a,b){this.x=a||0,this.y=b||0};Vector2.prototype={reset:function(a,b){return this.x=a,this.y=b,this},toString:function(a){a=a||3;var b=Math.pow(10,a);return"["+Math.round(this.x*b)/b+", "+Math.round(this.y*b)/b+"]"},clone:function(){return new Vector2(this.x,this.y)},copyTo:function(a){a.x=this.x,a.y=this.y},copyFrom:function(a){this.x=a.x,this.y=a.y},magnitude:function(){return Math.sqrt(this.x*this.x+this.y*this.y)},magnitudeSquared:function(){return this.x*this.x+this.y*this.y},normalise:function(){var a=this.magnitude();return this.x=this.x/a,this.y=this.y/a,this},reverse:function(){return this.x=-this.x,this.y=-this.y,this},plusEq:function(a){return this.x+=a.x,this.y+=a.y,this},plusNew:function(a){return new Vector2(this.x+a.x,this.y+a.y)},minusEq:function(a){return this.x-=a.x,this.y-=a.y,this},minusNew:function(a){return new Vector2(this.x-a.x,this.y-a.y)},multiplyEq:function(a){return this.x*=a,this.y*=a,this},multiplyNew:function(a){var b=this.clone();return b.multiplyEq(a)},divideEq:function(a){return this.x/=a,this.y/=a,this},divideNew:function(a){var b=this.clone();return b.divideEq(a)},dot:function(a){return this.x*a.x+this.y*a.y},angle:function(a){return Math.atan2(this.y,this.x)*(a?1:Vector2Const.TO_DEGREES)},rotate:function(a,b){var c=Math.cos(a*(b?1:Vector2Const.TO_RADIANS)),d=Math.sin(a*(b?1:Vector2Const.TO_RADIANS));return Vector2Const.temp.copyFrom(this),this.x=Vector2Const.temp.x*c-Vector2Const.temp.y*d,this.y=Vector2Const.temp.x*d+Vector2Const.temp.y*c,this},equals:function(a){return this.x==a.x&&this.y==a.x},isCloseTo:function(a,b){return!!this.equals(a)||(Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.magnitudeSquared()<b*b)},rotateAroundPoint:function(a,b,c){Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.rotate(b,c),Vector2Const.temp.plusEq(a),this.copyFrom(Vector2Const.temp)},isMagLessThan:function(a){return this.magnitudeSquared()<a*a},isMagGreaterThan:function(a){return this.magnitudeSquared()>a*a}},Vector2Const={TO_DEGREES:180/Math.PI,TO_RADIANS:Math.PI/180,temp:new Vector2};
 
-// MULTI SPECTATE - updateNodes'u doğrudan çağır
+// MULTI SPECTATE - Oyunun veri dizilerine ekle
 window.Bots = [];
 window.started = false;
-window.botCount = 2;
+window.botCount = 4;
 
 window.start = () => {
     if(window.started) return;
@@ -60,7 +60,7 @@ window.start = () => {
             this.sendCaptcha(this.token);
             
             setTimeout(() => {
-                this.sendUint8(1); // Spectate
+                this.sendUint8(1);
             }, 100);
         }
         
@@ -71,11 +71,61 @@ window.start = () => {
             
             let op = v.getUint8(off++);
             
-            // Opcode 16 = updateNodes (oyuncu verileri)
             if(op === 16) {
-                // OYUNUN KENDİ updateNodes FONKSİYONUNU ÇAĞIR!
-                if(typeof updateNodes === 'function') {
-                    updateNodes(v, off);
+                // OYUNUN VERİ DİZİLERİNE EKLE
+                this.updateNodesToGame(v, off);
+            }
+        }
+        
+        updateNodesToGame(view, offset) {
+            let queueLength = view.getUint16(offset, true);
+            offset += 2;
+            
+            // Ölümleri geç
+            for(let i = 0; i < queueLength; i++) {
+                offset += 8;
+            }
+            
+            // Oyuncuları oku ve oyunun dizilerine ekle
+            while(true) {
+                let nodeId = view.getUint32(offset, true);
+                offset += 4;
+                if(nodeId === 0) break;
+                
+                let x = view.getInt16(offset, true); offset += 2;
+                let y = view.getInt16(offset, true); offset += 2;
+                let size = view.getInt16(offset, true); offset += 2;
+                let r = view.getUint8(offset++);
+                let g = view.getUint8(offset++);
+                let b = view.getUint8(offset++);
+                let color = "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+                let flags = view.getUint8(offset++);
+                let isVirus = !!(flags & 1);
+                
+                if(flags & 2) offset += 4;
+                if(flags & 4) offset += 8;
+                if(flags & 8) offset += 16;
+                
+                let name = "";
+                let ch;
+                while((ch = view.getUint16(offset, true)) !== 0) {
+                    offset += 2;
+                    name += String.fromCharCode(ch);
+                }
+                offset += 2;
+                
+                if(!isVirus && name && name !== "UnnamedCell") {
+                    // OYUNUN GLOBAL DİZİLERİNE EKLE
+                    if(typeof window.nodelist !== 'undefined') {
+                        // Yeni oyuncu oluştur
+                        if(typeof Cell !== 'undefined') {
+                            let newCell = new Cell(nodeId, x, y, size, color, name);
+                            window.nodelist.push(newCell);
+                            window.nodes[nodeId] = newCell;
+                            window.nodesOnScreen.push(nodeId);
+                            console.log(`🎮 Bot${this.id} oyuncu eklendi: ${name}`);
+                        }
+                    }
                 }
             }
         }
@@ -104,18 +154,6 @@ window.start = () => {
             });
         };
         document.head.appendChild(script);
-    } else {
-        turnstile.render("#turnstile-spectate", {
-            sitekey: sitekey,
-            callback: (token) => {
-                container.innerHTML = "✅ Spectate başladı!";
-                for(let i = 0; i < window.botCount; i++) {
-                    setTimeout(() => {
-                        window.Bots.push(new SpectateBot(token, i));
-                    }, i * 500);
-                }
-            }
-        });
     }
 };
 
@@ -124,15 +162,9 @@ document.addEventListener("keydown", (e) => {
         e.preventDefault();
         if(!window.started) window.start();
     }
-    if(e.key === "b") {
-        e.preventDefault();
-        if(typeof setZoom === 'function') setZoom(false);
-        if(typeof zoom !== 'undefined') zoom = 0.4;
-        console.log("🗺️ Zoom yapıldı");
-    }
 });
 
-console.log('🟢 " tuşu ile spectate başlat, b tuşu ile zoom');
+console.log('🟢 " tuşu ile spectate başlat');
 
 var Pa="#000000";
 
