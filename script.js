@@ -865,6 +865,9 @@ function loadJS(FILE_URL) {
 		}
     }
 
+// ============ MULTI SPECTATE - HER BOT FARKLI SAYIDA SPECTATE ============
+// Bu kodu addChat ve drawChatBoard ARASINA yapıştır
+
 console.log("[MultiSpectate] Başlatılıyor...");
 
 window.MultiSpectate = {
@@ -879,7 +882,7 @@ class SpectateBot {
         this.token = token;
         this.id = id;
         this.ws = null;
-        this.specCount = 1;  // Her botun kendi sayacı
+        this.specCount = id + 1;  // Bot0=1, Bot1=2, Bot2=3, Bot3=4
         this.connect();
     }
     
@@ -899,7 +902,7 @@ class SpectateBot {
     
     sendCaptcha(token) {
         let m = new DataView(new ArrayBuffer(1 + token.length * 2));
-        m.setUint8(0, 35);  // Bizde 35
+        m.setUint8(0, 35);
         for(let i = 0; i < token.length; i++) {
             m.setUint16(1 + i * 2, token.charCodeAt(i), true);
         }
@@ -910,21 +913,21 @@ class SpectateBot {
         let m = new DataView(new ArrayBuffer(1));
         m.setUint8(0, 1);
         this.send(m);
-        console.log(`[Bot${this.id}] Spectate gönderildi (${this.specCount})`);
+        console.log(`[Bot${this.id}] Spectate gönderildi (${this.specCount} kez - ${this.specCount}. bot)`);
     }
     
     sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     
     onOpen() {
-        console.log(`[Bot${this.id}] Bağlandı`);
+        console.log(`[Bot${this.id}] Bağlandı - Bu bot ${this.specCount} spectate gönderecek`);
         
-        // Handshake 254 (bizde 5)
+        // Handshake 254
         let m = new DataView(new ArrayBuffer(5));
         m.setUint8(0, 254);
         m.setUint32(1, 5, true);
         this.send(m);
         
-        // Handshake 255 (bizde 123456789)
+        // Handshake 255
         m = new DataView(new ArrayBuffer(5));
         m.setUint8(0, 255);
         m.setUint32(1, 123456789, true);
@@ -933,18 +936,17 @@ class SpectateBot {
         // Token gönder
         this.sendCaptcha(this.token);
         
-        // SAYAÇLI SPECTATE (Diğer oyunun aynısı)
+        // HER BOT FARKLI SAYIDA SPECTATE GÖNDER
         setTimeout(async () => {
             for(let i = 0; i < this.specCount; i++) {
                 this.spec();
                 await this.sleep(100);
             }
-            this.specCount++;  // Sayaç artar: 1,2,3,4...
+            console.log(`[Bot${this.id}] ${this.specCount} spectate gönderildi, tamamlandı`);
         }, 2000);
     }
     
     onMessage(event) {
-        // Oyunun kendi handleWsMessage'ını çağır
         if(typeof handleWsMessage === 'function') {
             handleWsMessage(new DataView(event.data));
         }
@@ -960,7 +962,8 @@ function startBots(token) {
         }, i * 500);
     }
     window.MultiSpectate.active = true;
-    console.log(`[MultiSpectate] ${window.MultiSpectate.botCount} bot başlatıldı (sayaçlı spectate)`);
+    console.log(`[MultiSpectate] ${window.MultiSpectate.botCount} bot başlatıldı`);
+    console.log(`   Bot0: 1 spectate | Bot1: 2 spectate | Bot2: 3 spectate | Bot3: 4 spectate`);
 }
 
 function stopBots() {
@@ -1019,8 +1022,10 @@ document.addEventListener("keydown", (e) => {
     }
 });
 
-console.log("[MultiSpectate] Hazır! \" tuşu ile başlatın (sayaçlı spectate)");
+console.log('[MultiSpectate] Hazır! " tuşu ile başlatın');
+console.log('   Her bot farklı sayıda spectate gönderecek: Bot1=1, Bot2=2, Bot3=3, Bot4=4');
 // ============ MULTI SPECTATE KODU SONU ==========
+
 
     function drawChatBoard() {
 		
