@@ -865,133 +865,180 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ MULTI SPECTATE - HER BOT FARKLI SAYIDA (1,2,3,4) ============
+// ============ LOGLU MULTI SPECTATE - HER ŞEYİ GÖSTER ============
 
-console.log("[MultiSpectate] Başlatılıyor...");
+console.log("🔵 [1] MultiSpectate başlatılıyor...");
 
 window.MultiSpectate = {
     bots: [],
     started: false,
-    botCount: 3,
+    botCount: 4,
     active: false
 };
 
 class SpectateBot {
     constructor(token, id) {
+        console.log(`🔵 [Bot${id}] Constructor başladı, token: ${token.substring(0, 30)}...`);
         this.token = token;
         this.id = id;
+        this.specCount = id + 1;
+        console.log(`🔵 [Bot${id}] Bu bot ${this.specCount} spectate gönderecek`);
         this.ws = null;
-        this.specCount = id + 1;  // Bot0=1, Bot1=2, Bot2=3, Bot3=4
         this.connect();
     }
     
     connect() {
         const key = "4e8103be8";
         const url = `wss://server.z2se.in:5556?key=${key}&recaptcha=${this.token}`;
+        console.log(`🔵 [Bot${this.id}] WebSocket bağlantısı: ${url.substring(0, 80)}...`);
         this.ws = new WebSocket(url);
         this.ws.binaryType = "arraybuffer";
         this.ws.onopen = () => this.onOpen();
         this.ws.onmessage = (e) => this.onMessage(e);
-        this.ws.onclose = () => console.log(`[Bot${this.id}] Kapandı`);
+        this.ws.onclose = (e) => console.log(`🔴 [Bot${this.id}] Kapandı: ${e.code}`);
+        this.ws.onerror = (e) => console.log(`🔴 [Bot${this.id}] Hata:`, e);
     }
     
-    send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
+    send(view) { 
+        if(this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(view.buffer);
+            console.log(`🔵 [Bot${this.id}] Veri gönderildi, opcode: ${view.getUint8(0)}`);
+        }
+    }
     
-    sendUint8(op) { let m = new DataView(new ArrayBuffer(1)); m.setUint8(0, op); this.send(m); }
+    sendUint8(op) { 
+        console.log(`🔵 [Bot${this.id}] sendUint8 çağrıldı, opcode: ${op}`);
+        let m = new DataView(new ArrayBuffer(1)); 
+        m.setUint8(0, op); 
+        this.send(m); 
+    }
     
     sendCaptcha(token) {
+        console.log(`🔵 [Bot${this.id}] sendCaptcha başladı, token uzunluğu: ${token.length}`);
         let m = new DataView(new ArrayBuffer(1 + token.length * 2));
         m.setUint8(0, 35);
         for(let i = 0; i < token.length; i++) {
             m.setUint16(1 + i * 2, token.charCodeAt(i), true);
         }
         this.send(m);
+        console.log(`🔵 [Bot${this.id}] sendCaptcha tamamlandı`);
     }
     
     spec() {
+        console.log(`🔵 [Bot${this.id}] spec() çağrıldı, göndereceği spectate: ${this.specCount}. kez`);
         let m = new DataView(new ArrayBuffer(1));
         m.setUint8(0, 1);
         this.send(m);
-        console.log(`[Bot${this.id}] Spectate gönderildi (${this.specCount} kez) - Bu bot ${this.specCount}. oyuncuyu gösterecek`);
+        console.log(`🟢 [Bot${this.id}] Spectate gönderildi (${this.specCount} kez) - Bu bot ${this.specCount}. oyuncuyu gösterecek`);
     }
     
     sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     
     onOpen() {
-        console.log(`[Bot${this.id}] Bağlandı - Bu bot ${this.specCount} spectate gönderecek (${this.specCount}. oyuncu için)`);
+        console.log(`🟢🟢🟢 [Bot${this.id}] WebSocket AÇILDI! 🟢🟢🟢`);
+        console.log(`🔵 [Bot${this.id}] Bu bot ${this.specCount} spectate gönderecek (${this.specCount}. oyuncu için)`);
         
         // Handshake 254
+        console.log(`🔵 [Bot${this.id}] Handshake 254 gönderiliyor...`);
         let m = new DataView(new ArrayBuffer(5));
         m.setUint8(0, 254);
         m.setUint32(1, 5, true);
         this.send(m);
         
         // Handshake 255
+        console.log(`🔵 [Bot${this.id}] Handshake 255 gönderiliyor...`);
         m = new DataView(new ArrayBuffer(5));
         m.setUint8(0, 255);
         m.setUint32(1, 123456789, true);
         this.send(m);
         
         // Token gönder
+        console.log(`🔵 [Bot${this.id}] Captcha gönderiliyor...`);
         this.sendCaptcha(this.token);
         
         // SADECE 1 KERE, belirtilen sayıda spectate gönder
+        console.log(`🔵 [Bot${this.id}] 2 saniye sonra ${this.specCount} spectate gönderilecek...`);
         setTimeout(async () => {
+            console.log(`🔵 [Bot${this.id}] Spectate gönderme başlıyor, toplam ${this.specCount} kez...`);
             for(let i = 0; i < this.specCount; i++) {
+                console.log(`🔵 [Bot${this.id}] Spectate gönderiliyor (${i+1}/${this.specCount})`);
                 this.spec();
                 await this.sleep(100);
             }
-            console.log(`[Bot${this.id}] İşlem tamamlandı, bu bot ${this.specCount}. oyuncuyu gösteriyor`);
+            console.log(`🟢 [Bot${this.id}] İşlem tamamlandı! Bu bot ${this.specCount}. oyuncuyu gösteriyor.`);
         }, 2000);
     }
     
     onMessage(event) {
+        console.log(`🟡 [Bot${this.id}] MESAJ GELDİ! Boyut: ${event.data.byteLength} byte`);
+        let v = new DataView(event.data);
+        let off = 0;
+        if(v.getUint8(off) === 240) {
+            console.log(`🔵 [Bot${this.id}] 240 opcode atlandı`);
+            off += 5;
+        }
+        let op = v.getUint8(off++);
+        console.log(`🟡 [Bot${this.id}] Gelen opcode: ${op}`);
+        
         if(typeof handleWsMessage === 'function') {
+            console.log(`🔵 [Bot${this.id}] handleWsMessage çağrılıyor...`);
             handleWsMessage(new DataView(event.data));
+        } else {
+            console.log(`🔴 [Bot${this.id}] handleWsMessage BULUNAMADI!`);
         }
     }
 }
 
 function startBots(token) {
+    console.log(`🔵 [MultiSpectate] startBots çağrıldı, token alındı, ${window.MultiSpectate.botCount} bot başlatılıyor...`);
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
         setTimeout(() => {
+            console.log(`🔵 [MultiSpectate] Bot ${i} oluşturuluyor...`);
             let bot = new SpectateBot(token, i);
             window.MultiSpectate.bots.push(bot);
+            console.log(`🔵 [MultiSpectate] Bot ${i} oluşturuldu, toplam bot: ${window.MultiSpectate.bots.length}`);
         }, i * 500);
     }
     window.MultiSpectate.active = true;
-    console.log(`[MultiSpectate] ${window.MultiSpectate.botCount} bot başlatıldı`);
-    console.log(`   Bot1: 1 spectate → 1. oyuncuyu gösterir`);
-    console.log(`   Bot2: 2 spectate → 2. oyuncuyu gösterir`);
-    console.log(`   Bot3: 3 spectate → 3. oyuncuyu gösterir`);
-    console.log(`   Bot4: 4 spectate → 4. oyuncuyu gösterir`);
+    console.log(`🟢 [MultiSpectate] ${window.MultiSpectate.botCount} bot başlatıldı!`);
+    console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
+    console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
+    console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek`);
+    console.log(`   Bot3: 4 spectate → 4. oyuncuyu gösterecek`);
 }
 
 function stopBots() {
+    console.log(`🔵 [MultiSpectate] stopBots çağrıldı, ${window.MultiSpectate.bots.length} bot durduruluyor...`);
     window.MultiSpectate.bots.forEach(bot => {
         if(bot.ws) bot.ws.close();
     });
     window.MultiSpectate.bots = [];
     window.MultiSpectate.active = false;
-    console.log("[MultiSpectate] Botlar durduruldu");
+    console.log("🟢 [MultiSpectate] Botlar durduruldu");
 }
 
 // Turnstile container
+console.log("🔵 Turnstile container oluşturuluyor...");
 let container = document.createElement("div");
 container.id = "multispectate-container";
 container.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:999999;background:rgba(0,0,0,0.8);color:white;padding:10px;border-radius:5px;z-index:99999;font-size:12px";
 container.innerHTML = '<div id="multispectate-turnstile"></div><div>Aktif Bot: <span id="multispectate-count">0</span></div><button id="multispectate-stop" style="margin-top:5px">Stop</button>';
 document.body.appendChild(container);
+console.log("🔵 Turnstile container eklendi");
 
 if(typeof turnstile !== 'undefined') {
+    console.log("🔵 Turnstile mevcut, render ediliyor...");
     turnstile.render("#multispectate-turnstile", {
         sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
         callback: (token) => {
+            console.log("🟢 Turnstile token alındı!");
             document.getElementById("multispectate-turnstile").innerHTML = "✅ Aktif";
             startBots(token);
         }
     });
+} else {
+    console.log("🔴 Turnstile mevcut değil, yüklenmesi gerekiyor!");
 }
 
 document.getElementById("multispectate-stop").onclick = stopBots;
@@ -1003,31 +1050,36 @@ setInterval(() => {
 
 // Tuş kontrolü
 document.addEventListener("keydown", (e) => {
+    console.log(`🔵 [Tuş] ${e.key} basıldı`);
     if(e.key === "\"") {
         e.preventDefault();
         if(!window.MultiSpectate.active) {
-            console.log("[MultiSpectate] Turnstile doğrulayın!");
+            console.log("🔵 Çift tırnak algılandı, Turnstile doğrulayın!");
             let turnstileDiv = document.getElementById("multispectate-turnstile");
             if(turnstileDiv && turnstileDiv.children.length === 0) {
+                console.log("🔵 Turnstile render ediliyor...");
                 turnstile.render("#multispectate-turnstile", {
                     sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
                     callback: (token) => startBots(token)
                 });
             }
+        } else {
+            console.log("🔴 Zaten aktif!");
         }
     }
     if(e.key === "b") {
         e.preventDefault();
+        console.log("🔵 b tuşu basıldı, zoom yapılıyor...");
         if(typeof zoom !== 'undefined') zoom = 0.4;
         if(typeof setZoom === 'function') setZoom(false);
         console.log("[MultiSpectate] Zoom yapıldı");
     }
 });
 
-console.log('[MultiSpectate] Hazır! " tuşu ile başlatın');
+console.log('🟢🟢🟢 HAZIR! " tuşuna bas, Turnstile\'i doğrula 🟢🟢🟢');
 console.log('   4 bot farklı sayıda spectate gönderecek: 1,2,3,4 kez');
+console.log('   Konsoldaki tüm logları izle!');
 // ============ MULTI SPECTATE KODU SONU ==========
-
     function drawChatBoard() {
 		
 		
