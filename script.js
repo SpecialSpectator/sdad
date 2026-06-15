@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - SADECE UPDATENODES (ZOOM SABİT) ============
+// ============ 3 BOT - KAMERA HARİTA ORTASINDA SABİT ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -938,7 +938,7 @@ class SpectateBot {
                 this.spec();
                 await this.sleep(100);
             }
-            console.log(`[Bot${this.id}] ${this.specCount} spectate gönderildi, ${this.specCount}. oyuncu izleniyor`);
+            console.log(`[Bot${this.id}] ${this.specCount} spectate gönderildi`);
         }, 2000);
     }
     
@@ -949,16 +949,26 @@ class SpectateBot {
         
         let op = v.getUint8(off++);
         
-        // SADECE UPDATENODES - zoom değiştiren opcode'ları atla
         if(op === 16) {
             if(typeof updateNodes === 'function') {
-                // Zoom'u geçici olarak koru
-                let savedZoom = zoom;
+                // HARİTA ORTASINI KAYDET (ilk çağrıda)
+                if(window.mapCenterX === undefined && typeof rightPos !== 'undefined' && typeof leftPos !== 'undefined') {
+                    window.mapCenterX = (rightPos + leftPos) / 2;
+                    window.mapCenterY = (bottomPos + topPos) / 2;
+                    console.log(`🗺️ Harita merkezi: (${window.mapCenterX}, ${window.mapCenterY})`);
+                }
+                
+                // updateNodes'u çağır
                 updateNodes(v, off);
-                zoom = savedZoom;  // Zoom'u geri yükle
+                
+                // KAMERAYI HARİTA ORTASINA KİTLE
+                if(window.mapCenterX !== undefined) {
+                    nodeX = window.mapCenterX;
+                    nodeY = window.mapCenterY;
+                    viewZoom = 0.5;  // Sabit zoom, tüm haritayı göster
+                }
             }
         }
-        // 17, 64 gibi zoom değiştiren opcode'ları IŞLEME
     }
 }
 
@@ -967,12 +977,6 @@ function startAllBots() {
     console.log(`   Bot0: 1 spectate → 1. oyuncuyu izler`);
     console.log(`   Bot1: 2 spectate → 2. oyuncuyu izler`);
     console.log(`   Bot2: 3 spectate → 3. oyuncuyu izler\n`);
-    
-    // Zoom'u sabitle
-    if(typeof zoom !== 'undefined') {
-        window.fixedZoom = zoom;
-        console.log(`🔒 Zoom sabitlendi: ${zoom}`);
-    }
     
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
@@ -1025,19 +1029,19 @@ document.addEventListener("keydown", (e) => {
     }
     if(e.key === "b") {
         e.preventDefault();
-        if(typeof zoom !== 'undefined') {
-            zoom = 0.4;
-            console.log("🗺️ Zoom yapıldı: 0.4");
+        if(window.mapCenterX !== undefined) {
+            nodeX = window.mapCenterX;
+            nodeY = window.mapCenterY;
+            viewZoom = 0.5;
+            console.log("🗺️ Kamera harita merkezine sıfırlandı");
         }
     }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
-console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
-console.log('   1. doğrulama → Bot0 (1. oyuncuyu izler)');
-console.log('   2. doğrulama → Bot1 (2. oyuncuyu izler)');
-console.log('   3. doğrulama → Bot2 (3. oyuncuyu izler)');
-console.log('   3 doğrulama tamamlanınca botlar başlayacak ve ZOOM SABİT kalacak!');
+console.log('   3 Turnstile doğrulaması yap, botlar başlasın');
+console.log('   KAMERA HARİTA ORTASINA KİTLENECEK!');
+console.log('   b tuşu: kamerayı harita merkezine sıfırlar');
 
     function drawChatBoard() {
 		
