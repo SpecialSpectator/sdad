@@ -1,6 +1,6 @@
 var Vector2=function(a,b){this.x=a||0,this.y=b||0};Vector2.prototype={reset:function(a,b){return this.x=a,this.y=b,this},toString:function(a){a=a||3;var b=Math.pow(10,a);return"["+Math.round(this.x*b)/b+", "+Math.round(this.y*b)/b+"]"},clone:function(){return new Vector2(this.x,this.y)},copyTo:function(a){a.x=this.x,a.y=this.y},copyFrom:function(a){this.x=a.x,this.y=a.y},magnitude:function(){return Math.sqrt(this.x*this.x+this.y*this.y)},magnitudeSquared:function(){return this.x*this.x+this.y*this.y},normalise:function(){var a=this.magnitude();return this.x=this.x/a,this.y=this.y/a,this},reverse:function(){return this.x=-this.x,this.y=-this.y,this},plusEq:function(a){return this.x+=a.x,this.y+=a.y,this},plusNew:function(a){return new Vector2(this.x+a.x,this.y+a.y)},minusEq:function(a){return this.x-=a.x,this.y-=a.y,this},minusNew:function(a){return new Vector2(this.x-a.x,this.y-a.y)},multiplyEq:function(a){return this.x*=a,this.y*=a,this},multiplyNew:function(a){var b=this.clone();return b.multiplyEq(a)},divideEq:function(a){return this.x/=a,this.y/=a,this},divideNew:function(a){var b=this.clone();return b.divideEq(a)},dot:function(a){return this.x*a.x+this.y*a.y},angle:function(a){return Math.atan2(this.y,this.x)*(a?1:Vector2Const.TO_DEGREES)},rotate:function(a,b){var c=Math.cos(a*(b?1:Vector2Const.TO_RADIANS)),d=Math.sin(a*(b?1:Vector2Const.TO_RADIANS));return Vector2Const.temp.copyFrom(this),this.x=Vector2Const.temp.x*c-Vector2Const.temp.y*d,this.y=Vector2Const.temp.x*d+Vector2Const.temp.y*c,this},equals:function(a){return this.x==a.x&&this.y==a.x},isCloseTo:function(a,b){return!!this.equals(a)||(Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.magnitudeSquared()<b*b)},rotateAroundPoint:function(a,b,c){Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.rotate(b,c),Vector2Const.temp.plusEq(a),this.copyFrom(Vector2Const.temp)},isMagLessThan:function(a){return this.magnitudeSquared()<a*a},isMagGreaterThan:function(a){return this.magnitudeSquared()>a*a}},Vector2Const={TO_DEGREES:180/Math.PI,TO_RADIANS:Math.PI/180,temp:new Vector2};
 
-// ============ DÜZELTİLMİŞ - handleWsMessage KULLAN ============
+// ============ KESİN ÇÖZÜM - Direkt nodelist'e ekle ============
 window.Bots = [];
 window.started = false;
 window.botCount = 2;
@@ -66,16 +66,77 @@ window.start = () => {
         }
         
         onMessage(event) {
-            // OYUNUN KENDİ onWsMessage FONKSİYONUNU ÇAĞIR
-            if(typeof onWsMessage === 'function') {
-                onWsMessage({ data: event.data });
-            } 
-            // Alternatif: handleWsMessage
-            else if(typeof handleWsMessage === 'function') {
-                handleWsMessage(new DataView(event.data));
+            let v = new DataView(event.data);
+            let off = 0;
+            if(v.getUint8(off) === 240) off += 5;
+            
+            let op = v.getUint8(off++);
+            
+            if(op === 16) {
+                // DOĞRUDAN OYUNUN nodelist DİZİSİNE EKLE
+                this.addPlayersToGame(v, off);
             }
-            else {
-                console.log(`⚠️ Bot ${this.id}: Mesaj işleyici bulunamadı!`);
+        }
+        
+        addPlayersToGame(view, offset) {
+            let queueLength = view.getUint16(offset, true);
+            offset += 2;
+            
+            // Ölümleri geç
+            for(let i = 0; i < queueLength; i++) {
+                offset += 8;
+            }
+            
+            // Oyuncuları oku
+            let playersAdded = 0;
+            while(true) {
+                let nodeId = view.getUint32(offset, true);
+                offset += 4;
+                if(nodeId === 0) break;
+                
+                let x = view.getInt16(offset, true); offset += 2;
+                let y = view.getInt16(offset, true); offset += 2;
+                let size = view.getInt16(offset, true); offset += 2;
+                let r = view.getUint8(offset++);
+                let g = view.getUint8(offset++);
+                let b = view.getUint8(offset++);
+                let color = "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+                let flags = view.getUint8(offset++);
+                let isVirus = !!(flags & 1);
+                
+                if(flags & 2) offset += 4;
+                if(flags & 4) offset += 8;
+                if(flags & 8) offset += 16;
+                
+                let name = "";
+                let ch;
+                while((ch = view.getUint16(offset, true)) !== 0) {
+                    offset += 2;
+                    name += String.fromCharCode(ch);
+                }
+                offset += 2;
+                
+                if(!isVirus && name && name !== "UnnamedCell") {
+                    // DOĞRUDAN OYUNUN GLOBAL DİZİLERİNE EKLE
+                    if(typeof window.nodelist !== 'undefined' && typeof window.Cell !== 'undefined') {
+                        // Var mı kontrol et
+                        let exists = window.nodelist.some(node => node.id === nodeId);
+                        if(!exists) {
+                            let newCell = new window.Cell(nodeId, x, y, size, color, name);
+                            window.nodelist.push(newCell);
+                            window.nodes[nodeId] = newCell;
+                            if(window.nodesOnScreen) window.nodesOnScreen.push(nodeId);
+                            playersAdded++;
+                            console.log(`🎮 Bot${this.id} oyuncu eklendi: ${name} (${size})`);
+                        }
+                    } else {
+                        console.log(`⚠️ window.nodelist veya window.Cell bulunamadı!`);
+                    }
+                }
+            }
+            
+            if(playersAdded > 0) {
+                console.log(`✅ Bot${this.id} ${playersAdded} oyuncu ekledi!`);
             }
         }
     }
@@ -126,7 +187,6 @@ document.addEventListener("keydown", (e) => {
 });
 
 console.log('🟢 " tuşuna bas, Turnstile\'i doğrula');
-
 var Pa="#000000";
 
 var virusImageArray = ["virus_orange.webp","virus_purple.webp"];
