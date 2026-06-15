@@ -865,147 +865,162 @@ function loadJS(FILE_URL) {
 		}
     }
 
-    // ============ BURAYA MULTI SPECTATE KODU (IIFE YOK) ============
-    console.log("[MultiSpectate] Başlatılıyor...");
-    
-    // Global değişkenler
-    window.MultiSpectate = {
-        bots: [],
-        started: false,
-        botCount: 2,
-        active: false
-    };
-    
-    class SpectateBot {
-        constructor(token, id) {
-            this.token = token;
-            this.id = id;
-            this.ws = null;
-            this.connect();
-        }
-        
-        connect() {
-            const key = "4e8103be8";
-            const url = `wss://server.z2se.in:5556?key=${key}&recaptcha=${this.token}`;
-            this.ws = new WebSocket(url);
-            this.ws.binaryType = "arraybuffer";
-            this.ws.onopen = () => this.onOpen();
-            this.ws.onmessage = (e) => this.onMessage(e);
-            this.ws.onclose = () => console.log(`[Bot${this.id}] Kapandı`);
-        }
-        
-        send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
-        
-        sendUint8(op) { let m = new DataView(new ArrayBuffer(1)); m.setUint8(0, op); this.send(m); }
-        
-        sendCaptcha(token) {
-            let m = new DataView(new ArrayBuffer(1 + token.length * 2));
-            m.setUint8(0, 35);
-            for(let i = 0; i < token.length; i++) {
-                m.setUint16(1 + i * 2, token.charCodeAt(i), true);
-            }
-            this.send(m);
-        }
-        
-        onOpen() {
-            console.log(`[Bot${this.id}] Bağlandı`);
-            
-            let m = new DataView(new ArrayBuffer(5));
-            m.setUint8(0, 254);
-            m.setUint32(1, 5, true);
-            this.send(m);
-            
-            m = new DataView(new ArrayBuffer(5));
-            m.setUint8(0, 255);
-            m.setUint32(1, 123456789, true);
-            this.send(m);
-            
-            this.sendCaptcha(this.token);
-            
-            setTimeout(() => {
-                this.sendUint8(1);
-                console.log(`[Bot${this.id}] Spectate modunda`);
-            }, 100);
-        }
-        
-        onMessage(event) {
-            // Artık aynı scope'ta olduğumuz için handleWsMessage'a direkt erişebiliriz
-            if(typeof handleWsMessage === 'function') {
-                handleWsMessage(new DataView(event.data));
-            }
-        }
+console.log("[MultiSpectate] Başlatılıyor...");
+
+window.MultiSpectate = {
+    bots: [],
+    started: false,
+    botCount: 3,
+    active: false
+};
+
+class SpectateBot {
+    constructor(token, id) {
+        this.token = token;
+        this.id = id;
+        this.ws = null;
+        this.specCount = 1;  // Her botun kendi sayacı
+        this.connect();
     }
     
-    function startBots(token) {
-        window.MultiSpectate.bots = [];
-        for(let i = 0; i < window.MultiSpectate.botCount; i++) {
-            setTimeout(() => {
-                let bot = new SpectateBot(token, i);
-                window.MultiSpectate.bots.push(bot);
-            }, i * 500);
+    connect() {
+        const key = "4e8103be8";
+        const url = `wss://server.z2se.in:5556?key=${key}&recaptcha=${this.token}`;
+        this.ws = new WebSocket(url);
+        this.ws.binaryType = "arraybuffer";
+        this.ws.onopen = () => this.onOpen();
+        this.ws.onmessage = (e) => this.onMessage(e);
+        this.ws.onclose = () => console.log(`[Bot${this.id}] Kapandı`);
+    }
+    
+    send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
+    
+    sendUint8(op) { let m = new DataView(new ArrayBuffer(1)); m.setUint8(0, op); this.send(m); }
+    
+    sendCaptcha(token) {
+        let m = new DataView(new ArrayBuffer(1 + token.length * 2));
+        m.setUint8(0, 35);  // Bizde 35
+        for(let i = 0; i < token.length; i++) {
+            m.setUint16(1 + i * 2, token.charCodeAt(i), true);
         }
-        window.MultiSpectate.active = true;
-        console.log(`[MultiSpectate] ${window.MultiSpectate.botCount} bot başlatıldı`);
+        this.send(m);
     }
     
-    function stopBots() {
-        window.MultiSpectate.bots.forEach(bot => {
-            if(bot.ws) bot.ws.close();
-        });
-        window.MultiSpectate.bots = [];
-        window.MultiSpectate.active = false;
-        console.log("[MultiSpectate] Botlar durduruldu");
+    spec() {
+        let m = new DataView(new ArrayBuffer(1));
+        m.setUint8(0, 1);
+        this.send(m);
+        console.log(`[Bot${this.id}] Spectate gönderildi (${this.specCount})`);
     }
     
-    // Turnstile container
-    let container = document.createElement("div");
-    container.id = "multispectate-container";
-    container.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:999999;background:rgba(0,0,0,0.8);color:white;padding:10px;border-radius:5px;z-index:99999;font-size:12px";
-    container.innerHTML = '<div id="multispectate-turnstile"></div><div>Aktif Bot: <span id="multispectate-count">0</span></div><button id="multispectate-stop" style="margin-top:5px">Stop</button>';
-    document.body.appendChild(container);
+    sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     
-    if(typeof turnstile !== 'undefined') {
-        turnstile.render("#multispectate-turnstile", {
-            sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
-            callback: (token) => {
-                document.getElementById("multispectate-turnstile").innerHTML = "✅ Aktif";
-                startBots(token);
+    onOpen() {
+        console.log(`[Bot${this.id}] Bağlandı`);
+        
+        // Handshake 254 (bizde 5)
+        let m = new DataView(new ArrayBuffer(5));
+        m.setUint8(0, 254);
+        m.setUint32(1, 5, true);
+        this.send(m);
+        
+        // Handshake 255 (bizde 123456789)
+        m = new DataView(new ArrayBuffer(5));
+        m.setUint8(0, 255);
+        m.setUint32(1, 123456789, true);
+        this.send(m);
+        
+        // Token gönder
+        this.sendCaptcha(this.token);
+        
+        // SAYAÇLI SPECTATE (Diğer oyunun aynısı)
+        setTimeout(async () => {
+            for(let i = 0; i < this.specCount; i++) {
+                this.spec();
+                await this.sleep(100);
             }
-        });
+            this.specCount++;  // Sayaç artar: 1,2,3,4...
+        }, 2000);
     }
     
-    document.getElementById("multispectate-stop").onclick = stopBots;
-    
-    setInterval(() => {
-        let count = document.getElementById("multispectate-count");
-        if(count) count.innerHTML = window.MultiSpectate.bots.length;
-    }, 1000);
-    
-    // Tuş kontrolü
-    document.addEventListener("keydown", (e) => {
-        if(e.key === "\"") {
-            e.preventDefault();
-            if(!window.MultiSpectate.active) {
-                console.log("[MultiSpectate] Turnstile doğrulayın!");
-                let turnstileDiv = document.getElementById("multispectate-turnstile");
-                if(turnstileDiv && turnstileDiv.children.length === 0) {
-                    turnstile.render("#multispectate-turnstile", {
-                        sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
-                        callback: (token) => startBots(token)
-                    });
-                }
-            }
+    onMessage(event) {
+        // Oyunun kendi handleWsMessage'ını çağır
+        if(typeof handleWsMessage === 'function') {
+            handleWsMessage(new DataView(event.data));
         }
-        if(e.key === "b") {
-            e.preventDefault();
-            if(typeof zoom !== 'undefined') zoom = 0.4;
-            if(typeof setZoom === 'function') setZoom(false);
-            console.log("[MultiSpectate] Zoom yapıldı");
+    }
+}
+
+function startBots(token) {
+    window.MultiSpectate.bots = [];
+    for(let i = 0; i < window.MultiSpectate.botCount; i++) {
+        setTimeout(() => {
+            let bot = new SpectateBot(token, i);
+            window.MultiSpectate.bots.push(bot);
+        }, i * 500);
+    }
+    window.MultiSpectate.active = true;
+    console.log(`[MultiSpectate] ${window.MultiSpectate.botCount} bot başlatıldı (sayaçlı spectate)`);
+}
+
+function stopBots() {
+    window.MultiSpectate.bots.forEach(bot => {
+        if(bot.ws) bot.ws.close();
+    });
+    window.MultiSpectate.bots = [];
+    window.MultiSpectate.active = false;
+    console.log("[MultiSpectate] Botlar durduruldu");
+}
+
+// Turnstile container
+let container = document.createElement("div");
+container.id = "multispectate-container";
+container.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:999999;background:rgba(0,0,0,0.8);color:white;padding:10px;border-radius:5px;z-index:99999;font-size:12px";
+container.innerHTML = '<div id="multispectate-turnstile"></div><div>Aktif Bot: <span id="multispectate-count">0</span></div><button id="multispectate-stop" style="margin-top:5px">Stop</button>';
+document.body.appendChild(container);
+
+if(typeof turnstile !== 'undefined') {
+    turnstile.render("#multispectate-turnstile", {
+        sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
+        callback: (token) => {
+            document.getElementById("multispectate-turnstile").innerHTML = "✅ Aktif";
+            startBots(token);
         }
     });
-    
-    console.log("[MultiSpectate] Hazır! \" tuşu ile başlatın");
-    // ============ MULTI SPECTATE KODU SONU ==========
+}
+
+document.getElementById("multispectate-stop").onclick = stopBots;
+
+setInterval(() => {
+    let count = document.getElementById("multispectate-count");
+    if(count) count.innerHTML = window.MultiSpectate.bots.length;
+}, 1000);
+
+// Tuş kontrolü
+document.addEventListener("keydown", (e) => {
+    if(e.key === "\"") {
+        e.preventDefault();
+        if(!window.MultiSpectate.active) {
+            console.log("[MultiSpectate] Turnstile doğrulayın!");
+            let turnstileDiv = document.getElementById("multispectate-turnstile");
+            if(turnstileDiv && turnstileDiv.children.length === 0) {
+                turnstile.render("#multispectate-turnstile", {
+                    sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
+                    callback: (token) => startBots(token)
+                });
+            }
+        }
+    }
+    if(e.key === "b") {
+        e.preventDefault();
+        if(typeof zoom !== 'undefined') zoom = 0.4;
+        if(typeof setZoom === 'function') setZoom(false);
+        console.log("[MultiSpectate] Zoom yapıldı");
+    }
+});
+
+console.log("[MultiSpectate] Hazır! \" tuşu ile başlatın (sayaçlı spectate)");
+// ============ MULTI SPECTATE KODU SONU ==========
 
     function drawChatBoard() {
 		
