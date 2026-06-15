@@ -1,9 +1,8 @@
 var Vector2=function(a,b){this.x=a||0,this.y=b||0};Vector2.prototype={reset:function(a,b){return this.x=a,this.y=b,this},toString:function(a){a=a||3;var b=Math.pow(10,a);return"["+Math.round(this.x*b)/b+", "+Math.round(this.y*b)/b+"]"},clone:function(){return new Vector2(this.x,this.y)},copyTo:function(a){a.x=this.x,a.y=this.y},copyFrom:function(a){this.x=a.x,this.y=a.y},magnitude:function(){return Math.sqrt(this.x*this.x+this.y*this.y)},magnitudeSquared:function(){return this.x*this.x+this.y*this.y},normalise:function(){var a=this.magnitude();return this.x=this.x/a,this.y=this.y/a,this},reverse:function(){return this.x=-this.x,this.y=-this.y,this},plusEq:function(a){return this.x+=a.x,this.y+=a.y,this},plusNew:function(a){return new Vector2(this.x+a.x,this.y+a.y)},minusEq:function(a){return this.x-=a.x,this.y-=a.y,this},minusNew:function(a){return new Vector2(this.x-a.x,this.y-a.y)},multiplyEq:function(a){return this.x*=a,this.y*=a,this},multiplyNew:function(a){var b=this.clone();return b.multiplyEq(a)},divideEq:function(a){return this.x/=a,this.y/=a,this},divideNew:function(a){var b=this.clone();return b.divideEq(a)},dot:function(a){return this.x*a.x+this.y*a.y},angle:function(a){return Math.atan2(this.y,this.x)*(a?1:Vector2Const.TO_DEGREES)},rotate:function(a,b){var c=Math.cos(a*(b?1:Vector2Const.TO_RADIANS)),d=Math.sin(a*(b?1:Vector2Const.TO_RADIANS));return Vector2Const.temp.copyFrom(this),this.x=Vector2Const.temp.x*c-Vector2Const.temp.y*d,this.y=Vector2Const.temp.x*d+Vector2Const.temp.y*c,this},equals:function(a){return this.x==a.x&&this.y==a.x},isCloseTo:function(a,b){return!!this.equals(a)||(Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.magnitudeSquared()<b*b)},rotateAroundPoint:function(a,b,c){Vector2Const.temp.copyFrom(this),Vector2Const.temp.minusEq(a),Vector2Const.temp.rotate(b,c),Vector2Const.temp.plusEq(a),this.copyFrom(Vector2Const.temp)},isMagLessThan:function(a){return this.magnitudeSquared()<a*a},isMagGreaterThan:function(a){return this.magnitudeSquared()>a*a}},Vector2Const={TO_DEGREES:180/Math.PI,TO_RADIANS:Math.PI/180,temp:new Vector2};
 
-// MULTI SPECTATE - Diğer oyunun birebir aynısı (Turnstile ile)
+// ============ KESİN ÇÖZÜM ============
 window.Bots = [];
 window.started = false;
-window.count = 1;
 window.botCount = 2;
 
 window.start = () => {
@@ -25,8 +24,8 @@ window.start = () => {
             const url = `wss://${serverUrl}?key=${key}&recaptcha=${this.token}`;
             this.ws = new WebSocket(url);
             this.ws.binaryType = "arraybuffer";
-            this.ws.onmessage = (e) => this.onMessage(e);
             this.ws.onopen = () => this.onOpen();
+            this.ws.onmessage = (e) => this.onMessage(e);
             this.ws.onclose = () => console.log(`Bot ${this.id} kapandı`);
         }
         
@@ -34,18 +33,11 @@ window.start = () => {
         
         send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
         
-        spec() {
-            let m = this.Buffer(1);
-            m.setUint8(0, 1);
-            this.send(m);
-            console.log(`👁️ Bot ${this.id} spectate gönderdi`);
-        }
+        sendUint8(op) { let m = this.Buffer(1); m.setUint8(0, op); this.send(m); }
         
-        sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-        
-        cap(token) {
+        sendCaptcha(token) {
             let m = this.Buffer(1 + token.length * 2);
-            m.setUint8(0, 35);  // Bizde 35, diğerinde 50
+            m.setUint8(0, 35);
             for(let i = 0; i < token.length; i++) {
                 m.setUint16(1 + i * 2, token.charCodeAt(i), true);
             }
@@ -53,75 +45,57 @@ window.start = () => {
         }
         
         onOpen() {
-            console.log(`✅ Bot ${this.id} bağlandı`);
+            console.log(`✅ Bot ${this.id} bağlandı - Spectate moduna geçiyor`);
             
-            // Handshake 254
             let m = this.Buffer(5);
             m.setUint8(0, 254);
-            m.setUint32(1, 5, true);  // Bizde 5, diğerinde 4
+            m.setUint32(1, 5, true);
             this.send(m);
             
-            // Handshake 255
             m = this.Buffer(5);
             m.setUint8(0, 255);
-            m.setUint32(1, 123456789, true);  // Bizde 123456789, diğerinde 1332175218
+            m.setUint32(1, 123456789, true);
             this.send(m);
             
-            // Token gönder
-            this.cap(this.token);
+            this.sendCaptcha(this.token);
             
-            // Diğer oyundaki gibi sayaçlı spectate
-            setTimeout(async () => {
-                for(let i = 0; i < window.count; i++) {
-                    this.spec();
-                    await this.sleep(100);
-                }
-                window.count++;
-            }, 2000);
+            setTimeout(() => {
+                this.sendUint8(1);
+                console.log(`👁️ Bot ${this.id} spectate modunda`);
+            }, 100);
         }
         
         onMessage(event) {
-            // Oyunun kendi handleWsMessage'ını çağır
-            if(typeof handleWsMessage === 'function') {
-                handleWsMessage(new DataView(event.data));
+            let v = new DataView(event.data);
+            let off = 0;
+            if(v.getUint8(off) === 240) off += 5;
+            
+            let op = v.getUint8(off++);
+            
+            // Opcode 16 = updateNodes
+            if(op === 16) {
+                // OYUNUN KENDİ updateNodes FONKSİYONUNU ÇAĞIR
+                if(typeof updateNodes === 'function') {
+                    updateNodes(v, off);
+                }
             }
         }
     }
     
-    // Turnstile container - GÖRÜNÜR VE TIKLANABİLİR
+    // Turnstile container
     let container = document.createElement("div");
     container.id = "turnstile-spectate";
-    container.style.cssText = `
-        position:fixed;
-        bottom:20px;
-        right:20px;
-        z-index:999999;
-        background:white;
-        padding:15px;
-        border-radius:10px;
-        box-shadow:0 0 10px rgba(0,0,0,0.3);
-        z-index:99999;
-        min-width:200px;
-        text-align:center;
-    `;
-    container.innerHTML = "<div style='margin-bottom:10px'>🔒 Doğrulama Gerekli</div><div id='turnstile-widget-container'></div>";
+    container.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:999999;background:white;padding:10px;border-radius:5px;z-index:99999";
     document.body.appendChild(container);
     
-    let turnstileContainer = document.getElementById("turnstile-widget-container");
-    
-    // Turnstile API yükle
     if(typeof turnstile === 'undefined') {
         let script = document.createElement("script");
         script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
         script.onload = () => {
-            turnstile.render(turnstileContainer, {
+            turnstile.render("#turnstile-spectate", {
                 sitekey: sitekey,
                 callback: (token) => {
-                    container.innerHTML = "✅ Spectate başladı! Botlar çalışıyor...";
-                    setTimeout(() => {
-                        container.style.display = "none";
-                    }, 3000);
-                    
+                    container.innerHTML = "✅ Spectate başladı!";
                     for(let i = 0; i < window.botCount; i++) {
                         setTimeout(() => {
                             window.Bots.push(new SpectateBot(token, i));
@@ -132,14 +106,10 @@ window.start = () => {
         };
         document.head.appendChild(script);
     } else {
-        turnstile.render(turnstileContainer, {
+        turnstile.render("#turnstile-spectate", {
             sitekey: sitekey,
             callback: (token) => {
-                container.innerHTML = "✅ Spectate başladı! Botlar çalışıyor...";
-                setTimeout(() => {
-                    container.style.display = "none";
-                }, 3000);
-                
+                container.innerHTML = "✅ Spectate başladı!";
                 for(let i = 0; i < window.botCount; i++) {
                     setTimeout(() => {
                         window.Bots.push(new SpectateBot(token, i));
@@ -150,26 +120,16 @@ window.start = () => {
     }
 };
 
-// Tuş kontrolleri
 document.addEventListener("keydown", (e) => {
     if(e.key === "\"") {
         e.preventDefault();
-        if(!window.started) {
-            window.start();
-            console.log('🔘 Turnstile kutucuğu sağ altta açıldı, doğrulayın!');
-        }
-    }
-    if(e.key === "b") {
-        e.preventDefault();
-        if(typeof setZoom === 'function') setZoom(false);
-        if(typeof zoom !== 'undefined') zoom = 0.4;
-        console.log("🗺️ Zoom yapıldı");
+        if(!window.started) window.start();
     }
 });
 
-console.log('🟢 HAZIR! " tuşuna basın, sağ alttaki Turnstile\'i doğrulayın');
-console.log('   Botlar otomatik spectate modunda başlayacak');
-console.log('   b tuşu ile haritayı zoomlayabilirsiniz');
+console.log('🟢 " tuşuna bas, Turnstile\'i doğrula');
+console.log('⚠️ Konsolda "socket open" yazısını görmelisin');
+console.log('⚠️ Oyuncular HARİTADA görünecek!');
 
 var Pa="#000000";
 
