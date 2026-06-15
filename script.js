@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - SADECE OPDODE 17 ENGELLENDİ ============
+// ============ 3 BOT - NORMAL KOD (HİÇBİR ENGELLEME YOK) ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -943,19 +943,7 @@ class SpectateBot {
     }
     
     onMessage(event) {
-        let v = new DataView(event.data);
-        let off = 0;
-        if(v.getUint8(off) === 240) off += 5;
-        
-        let op = v.getUint8(off++);
-        
-        // SADECE OPDODE 17'Yİ ENGELLE (update position)
-        if(op === 17) {
-            // Hiçbir şey yapma, sadece engelle
-            return;
-        }
-        
-        // Diğer tüm opcode'ları normal işle
+        // Hiçbir engelleme yok, doğrudan oyunun handler'ına gönder
         if(typeof handleWsMessage === 'function') {
             handleWsMessage(new DataView(event.data));
         }
@@ -1006,7 +994,6 @@ function showNextTurnstile() {
     });
 }
 
-// Tuş kontrolü
 document.addEventListener("keydown", (e) => {
     if(e.key === "\"") {
         e.preventDefault();
@@ -1021,8 +1008,7 @@ document.addEventListener("keydown", (e) => {
 
 console.log('🟢 HAZIR! " tuşuna bas');
 console.log('   3 Turnstile doğrulaması yap, botlar başlasın');
-console.log('   SADECE OPDODE 17 (update position) ENGELLENDİ');
-console.log('   Diğer her şey normal çalışacak, oyuncular görünecek!');
+console.log('   HİÇBİR ENGELLEME YOK, her şey normal çalışacak');
 
     function drawChatBoard() {
 		
