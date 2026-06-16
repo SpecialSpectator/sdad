@@ -639,6 +639,8 @@ function loadJS(FILE_URL) {
         ws.onerror = function () {
             //console.log("socket error");
         };
+        window._multiSpectateGameUrl = wsUrl + "&recaptcha=" + currentToken;
+        console.log("[MultiSpectate] Oyun URL'si yakalandı:", window._multiSpectateGameUrl);
     }
     function prepareData(a) {
         return new DataView(new ArrayBuffer(a))
