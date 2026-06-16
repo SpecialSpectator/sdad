@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - OPDODE 17 ENGELLİ + ZOOM DÜZGÜN ÇALIŞIYOR ============
+// ============ 3 BOT - OPDODE 17 ENGELLİ + MAIN.PHP İLE URL AL ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -875,8 +875,53 @@ window.MultiSpectate = {
     botCount: 3,
     active: false,
     tokens: [],
-    completedCount: 0
+    completedCount: 0,
+    gameUrl: null,
+    gameKey: null
 };
+
+// OYUNUN AYNI SİSTEMİYLE main.php'den URL AL
+function getGameConnectionFromServer() {
+    return new Promise(function(resolve) {
+        var data = (typeof w !== 'undefined' ? w : "TK-Turkey") + (typeof gameMode !== 'undefined' ? gameMode : "");
+        
+        console.log("[MultiSpectate] main.php'ye istek atılıyor...");
+        console.log("   Data:", data);
+        
+        $.ajax({
+            url: "main.php",
+            method: "POST",
+            data: data || "?",
+            dataType: "text",
+            cache: false,
+            crossDomain: true,
+            success: function(response) {
+                console.log("[MultiSpectate] main.php cevabı:", response);
+                // Cevap muhtemelen sunucu adresi
+                if (response && response.trim()) {
+                    window.MultiSpectate.gameUrl = response.trim();
+                    resolve(response.trim());
+                } else {
+                    resolve(null);
+                }
+            },
+            error: function() {
+                console.log("[MultiSpectate] main.php hatası, tekrar deneniyor...");
+                setTimeout(function() {
+                    getGameConnectionFromServer().then(resolve);
+                }, 1000);
+            }
+        });
+    });
+}
+
+// OYUNUN AYNI SİSTEMİYLE KEY AL (sendHand'deki hash)
+function getGameKeyFromHash() {
+    if (typeof hash !== 'undefined' && hash) {
+        return hash;
+    }
+    return null;
+}
 
 class SpectateBot {
     constructor(token, id) {
@@ -888,8 +933,29 @@ class SpectateBot {
     }
     
     connect() {
-        const key = "be85c85fc";
-        const url = `wss://server.z2se.in:5556?key=${key}&recaptcha=${this.token}`;
+        // OYUNUN AYNI SİSTEMİYLE URL OLUŞTUR
+        var connectionUrl = window.MultiSpectate.gameUrl;
+        var key = window.MultiSpectate.gameKey;
+        
+        if (!connectionUrl) {
+            console.log(`[Bot${this.id}] URL henüz alınmadı, bekleniyor...`);
+            setTimeout(function() {
+                this.connect();
+            }.bind(this), 500);
+            return;
+        }
+        
+        // Oyunun wsConnect'teki gibi URL oluştur
+        var url;
+        if (key) {
+            url = `wss://${connectionUrl}?key=${key}&recaptcha=${this.token}`;
+        } else {
+            url = `wss://${connectionUrl}&recaptcha=${this.token}`;
+        }
+        
+        console.log(`[Bot${this.id}] Bağlanıyor: ${url.substring(0, 80)}...`);
+        console.log(`   CONNECTION_URL: ${connectionUrl}, Key: ${key || 'YOK'}`);
+        
         this.ws = new WebSocket(url);
         this.ws.binaryType = "arraybuffer";
         this.ws.onopen = () => this.onOpen();
@@ -949,12 +1015,10 @@ class SpectateBot {
         
         var op = v.getUint8(off++);
         
-        // SADECE OPDODE 17 ENGELLENDİ
         if(op === 17) {
             return;
         }
         
-        // Diğer tüm opcode'lar normal işlensin
         if(typeof handleWsMessage === 'function') {
             handleWsMessage(new DataView(event.data));
         }
@@ -963,12 +1027,14 @@ class SpectateBot {
 
 function startAllBots() {
     console.log(`\n🟢🟢🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR... 🟢🟢🟢\n`);
+    console.log(`   OYUN BAĞLANTI BİLGİLERİ:`);
+    console.log(`   URL: ${window.MultiSpectate.gameUrl}`);
+    console.log(`   Key: ${window.MultiSpectate.gameKey || 'YOK'}\n`);
     console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
     console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
     console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
     console.log(`   OPDODE 17 ENGELLENDİ - Kamera sabit kalacak!\n`);
     
-    // Zoom başlangıç değeri
     if(typeof zoom !== 'undefined') {
         zoom = 1;
     }
@@ -1019,10 +1085,23 @@ document.addEventListener("keydown", function(e) {
     if(e.key === "\"") {
         e.preventDefault();
         if(!window.MultiSpectate.active && window.MultiSpectate.completedCount === 0) {
-            console.log("\n🔵 Çift tırnak basıldı! 3 Turnstile doğrulaması başlıyor...\n");
-            window.MultiSpectate.completedCount = 0;
-            window.MultiSpectate.tokens = [];
-            showNextTurnstile();
+            console.log("\n🔵 Çift tırnak basıldı!\n");
+            
+            // Önce main.php'den URL al
+            getGameConnectionFromServer().then(function(url) {
+                if (url) {
+                    window.MultiSpectate.gameUrl = url;
+                    window.MultiSpectate.gameKey = getGameKeyFromHash();
+                    console.log("✅ URL alındı:", url);
+                    console.log("✅ Key:", window.MultiSpectate.gameKey);
+                    console.log("\n🔵 3 Turnstile doğrulaması başlıyor...\n");
+                    window.MultiSpectate.completedCount = 0;
+                    window.MultiSpectate.tokens = [];
+                    showNextTurnstile();
+                } else {
+                    console.log("❌ URL alınamadı!");
+                }
+            });
         }
     }
     
@@ -1032,28 +1111,26 @@ document.addEventListener("keydown", function(e) {
             hideOverlays();
         }
         
-        // ZOOM YAP - zoom değişkenini değiştir
         if(typeof zoom !== 'undefined') {
-            zoom = 0.03;
-            // viewZoom'u manuel güncelle (viewRange ile)
+            zoom = 0.3;
             if(typeof viewRange === 'function') {
                 viewZoom = viewRange();
             } else {
-                // viewRange yoksa doğrudan viewZoom'a yaz
-                viewZoom = 0.03;
+                viewZoom = 0.3;
             }
-            console.log("🗺️ Zoom yapıldı: zoom = 0.4, viewZoom = " + viewZoom);
+            console.log("🗺️ Zoom yapıldı: zoom = 0.3");
         }
     }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
-console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
+console.log('   Önce main.php\'ye istek atılır, URL alınır.');
+console.log('   Sonra sırayla 3 Turnstile doğrulaması yapacaksın:');
 console.log('   1. doğrulama → Bot0 (1. oyuncu)');
 console.log('   2. doğrulama → Bot1 (2. oyuncu)');
 console.log('   3. doğrulama → Bot2 (3. oyuncu)');
 console.log('   OPDODE 17 ENGELLENDİ - Kamera sabit kalacak!');
-console.log('   b tuşu: overlay gizle + zoom yap (zoom = 0.4)');
+console.log('   b tuşu: overlay gizle + zoom yap (zoom = 0.3)');
 
     function drawChatBoard() {
 		
