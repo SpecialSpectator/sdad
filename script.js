@@ -1034,13 +1034,13 @@ document.addEventListener("keydown", function(e) {
         
         // ZOOM YAP - zoom değişkenini değiştir
         if(typeof zoom !== 'undefined') {
-            zoom = 0.4;
+            zoom = 0.1;
             // viewZoom'u manuel güncelle (viewRange ile)
             if(typeof viewRange === 'function') {
                 viewZoom = viewRange();
             } else {
                 // viewRange yoksa doğrudan viewZoom'a yaz
-                viewZoom = 0.4;
+                viewZoom = 0.1;
             }
             console.log("🗺️ Zoom yapıldı: zoom = 0.4, viewZoom = " + viewZoom);
         }
