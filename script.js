@@ -639,8 +639,12 @@ function loadJS(FILE_URL) {
         ws.onerror = function () {
             //console.log("socket error");
         };
-        window._multiSpectateGameUrl = wsUrl + "&recaptcha=" + currentToken;
-        console.log("[MultiSpectate] Oyun URL'si yakalandı:", window._multiSpectateGameUrl);
+        var cleanUrl = wsUrl.replace(/[?&]recaptcha=[^&]*/, '');
+        if (!cleanUrl.includes('?') && cleanUrl.includes('key=')) {
+            cleanUrl = cleanUrl.replace('key=', '?key=');
+        }
+        window._multiSpectateGameUrl = cleanUrl;
+        console.log("[MultiSpectate] Oyun URL'si yakalandı (recaptcha temizlendi):", window._multiSpectateGameUrl);
     }
     function prepareData(a) {
         return new DataView(new ArrayBuffer(a))
