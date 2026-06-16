@@ -865,26 +865,31 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 TURNSTILE DOĞRULAMASI - KAMERA SADECE 1 KEZ ============
+// ============ 3 BOT - ORİJİNAL updateNodes'u DÜZENLE ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
+// Orijinal updateNodes'u bul ve değiştir
+// Orijinalde şu satır var:
+// if (1 == playerCells.length) { nodeX = node.x; nodeY = node.y; }
+// Bunu DEĞİŞTİR: sadece ilk oyuncuda bir kere ayarla
+
 // Orijinal updateNodes'u yedekle
 let orjUpdateNodes = updateNodes;
-let kameraAyarlanmisMi = false;
+let kameraSet = false;
 
-// updateNodes'u override et - kamera sadece 1 kez ayarlansın
+// YENİ updateNodes - kamera değişmez
 updateNodes = function(view, offset) {
-    // Orijinal updateNodes'u çağır
+    // Önce orijinali çalıştır
     orjUpdateNodes(view, offset);
     
-    // Kamera sadece 1 kez ayarlansın
-    if(!kameraAyarlanmisMi && playerCells.length > 0) {
+    // Eğer kamera daha önce ayarlanmadıysa ve oyuncu varsa ayarla
+    if(!kameraSet && playerCells.length > 0) {
         nodeX = playerCells[0].x;
         nodeY = playerCells[0].y;
         viewZoom = 1;
-        kameraAyarlanmisMi = true;
-        console.log(`🗺️ Kamera ayarlandı: (${nodeX}, ${nodeY})`);
+        kameraSet = true;
+        console.log("🗺️ Kamera 1 kez ayarlandı");
     }
 };
 
@@ -901,7 +906,7 @@ class SpectateBot {
     constructor(token, id) {
         this.token = token;
         this.id = id;
-        this.specCount = id + 1;  // Bot0=1, Bot1=2, Bot2=3
+        this.specCount = id + 1;
         this.ws = null;
         this.connect();
     }
@@ -933,13 +938,12 @@ class SpectateBot {
         let m = new DataView(new ArrayBuffer(1));
         m.setUint8(0, 1);
         this.send(m);
-        console.log(`[Bot${this.id}] Spectate gönderildi (${this.specCount} kez) - ${this.specCount}. oyuncu için`);
     }
     
     sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     
     onOpen() {
-        console.log(`[Bot${this.id}] Bağlandı - ${this.specCount}. oyuncu için spectate gönderiyor...`);
+        console.log(`[Bot${this.id}] Bağlandı - ${this.specCount}. oyuncu için`);
         
         let m = new DataView(new ArrayBuffer(5));
         m.setUint8(0, 254);
@@ -958,7 +962,7 @@ class SpectateBot {
                 this.spec();
                 await this.sleep(100);
             }
-            console.log(`[Bot${this.id}] Tamamlandı, ${this.specCount}. oyuncu izleniyor`);
+            console.log(`[Bot${this.id}] ${this.specCount} spectate gönderdi`);
         }, 2000);
     }
     
@@ -970,24 +974,22 @@ class SpectateBot {
         let op = v.getUint8(off++);
         
         if(op === 16) {
-            // Override edilmiş updateNodes çağrılır (kamera korumalı)
             updateNodes(v, off);
         }
     }
 }
 
 function startAllBots() {
-    console.log(`\n🟢🟢🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR... 🟢🟢🟢\n`);
-    console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
-    console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
-    console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
+    console.log(`\n🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR...\n`);
+    console.log(`   Bot0: 1 spectate → 1. oyuncuyu izler`);
+    console.log(`   Bot1: 2 spectate → 2. oyuncuyu izler`);
+    console.log(`   Bot2: 3 spectate → 3. oyuncuyu izler\n`);
     
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
         setTimeout(() => {
             let bot = new SpectateBot(window.MultiSpectate.tokens[i], i);
             window.MultiSpectate.bots.push(bot);
-            console.log(`✅ Bot${i} başlatıldı (${i+1}. oyuncu için)`);
         }, i * 500);
     }
     window.MultiSpectate.active = true;
@@ -1006,13 +1008,13 @@ function showNextTurnstile() {
     let container = document.createElement("div");
     container.id = `turnstile-bot-${currentIndex}`;
     container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
-    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})</div><div id="turnstile-${currentIndex}"></div>`;
+    container.innerHTML = `<div>Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex+1}. oyuncuyu izleyecek</small></div><div id="turnstile-${currentIndex}"></div>`;
     document.body.appendChild(container);
     
     turnstile.render(`#turnstile-${currentIndex}`, {
         sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
         callback: (token) => {
-            console.log(`✅ Bot${currentIndex} için token alındı!`);
+            console.log(`✅ Bot${currentIndex} token alındı!`);
             window.MultiSpectate.tokens[currentIndex] = token;
             window.MultiSpectate.completedCount++;
             container.remove();
@@ -1021,55 +1023,21 @@ function showNextTurnstile() {
     });
 }
 
-// Kamera sıfırlama
-window.sifirlaKamera = function() {
-    kameraAyarlanmisMi = false;
-    if(playerCells.length > 0) {
-        nodeX = playerCells[0].x;
-        nodeY = playerCells[0].y;
-        viewZoom = 1;
-        kameraAyarlanmisMi = true;
-        console.log(`🗺️ Kamera sıfırlandı: (${nodeX}, ${nodeY})`);
-    }
-};
-
-// Tuş kontrolü
 document.addEventListener("keydown", (e) => {
     if(e.key === "\"") {
         e.preventDefault();
         if(!window.MultiSpectate.active && window.MultiSpectate.completedCount === 0) {
-            console.log("\n🔵 Çift tırnak basıldı! 3 Turnstile doğrulaması başlıyor...\n");
+            console.log("\n🔵 Başlatılıyor... 3 Turnstile doğrulaması yapın!");
             window.MultiSpectate.completedCount = 0;
             window.MultiSpectate.tokens = [];
             showNextTurnstile();
-        } else if(window.MultiSpectate.active) {
-            console.log("Botlar zaten aktif!");
-        } else if(window.MultiSpectate.completedCount > 0) {
-            console.log(`Zaten ${window.MultiSpectate.completedCount} doğrulama yapıldı, devam ediyor...`);
         }
-    }
-    if(e.key === "b") {
-        e.preventDefault();
-        if(typeof viewZoom !== 'undefined') {
-            viewZoom = 0.4;
-            console.log("🗺️ Zoom yapıldı: 0.4");
-        }
-    }
-    if(e.key === "r") {
-        e.preventDefault();
-        window.sifirlaKamera();
-        console.log("🗺️ Kamera sıfırlandı!");
     }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
-console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
-console.log('   1. doğrulama → Bot0 (1. oyuncu)');
-console.log('   2. doğrulama → Bot1 (2. oyuncu)');
-console.log('   3. doğrulama → Bot2 (3. oyuncu)');
-console.log('   3 doğrulama tamamlanınca botlar otomatik başlayacak!');
-console.log('   b tuşu: zoom yapar');
-console.log('   r tuşu: kamerayı sıfırlar');
+console.log('   3 Turnstile doğrulaması yap, botlar başlasın');
+console.log('   Kamera SADECE 1 KEZ ayarlanacak!');
 
     function drawChatBoard() {
 		
