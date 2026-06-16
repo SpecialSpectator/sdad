@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 TURNSTILE DOĞRULAMASI - OPDODE 17 ENGELLİ + KAMERA SABİT ============
+// ============ 3 TURNSTILE DOĞRULAMASI - KAMERA SABİT ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -878,23 +878,53 @@ window.MultiSpectate = {
     completedCount: 0
 };
 
-// Harita merkezini bul ve kamerayı sabitle
-function sabitleKamera() {
+// Orijinal updateNodes'u yedekle
+var orjUpdateNodes = updateNodes;
+
+// KAMERA SABİTLEME
+var sabitNodeX = 0;
+var sabitNodeY = 0;
+var sabitViewZoom = 1;
+var kameraSabitlendi = false;
+
+function kameraSabitle() {
     if (typeof leftPos !== 'undefined' && typeof rightPos !== 'undefined' && 
         typeof topPos !== 'undefined' && typeof bottomPos !== 'undefined') {
-        var merkezX = (leftPos + rightPos) / 2;
-        var merkezY = (topPos + bottomPos) / 2;
-        nodeX = merkezX;
-        nodeY = merkezY;
-        console.log(`🗺️ Kamera harita merkezine sabitlendi: (${merkezX}, ${merkezY})`);
+        sabitNodeX = (leftPos + rightPos) / 2;
+        sabitNodeY = (topPos + bottomPos) / 2;
+        sabitViewZoom = 1;
+        kameraSabitlendi = true;
+        nodeX = sabitNodeX;
+        nodeY = sabitNodeY;
+        viewZoom = sabitViewZoom;
+        console.log(`🗺️ Kamera sabitlendi: (${sabitNodeX}, ${sabitNodeY})`);
     }
 }
 
-// updateNodes'u override et - kamera hep merkezde kalsın
-var orjUpdateNodes = updateNodes;
+// updateNodes override - kamera değişmesin
 updateNodes = function(view, offset) {
     orjUpdateNodes(view, offset);
-    sabitleKamera();
+    if (kameraSabitlendi) {
+        nodeX = sabitNodeX;
+        nodeY = sabitNodeY;
+        viewZoom = sabitViewZoom;
+    }
+};
+
+// handleWsMessage override - opcode 17 ve 64 engelle
+var orjHandleWsMessage = handleWsMessage;
+handleWsMessage = function(msg) {
+    var v = msg;
+    var off = 0;
+    if (v.getUint8(off) === 240) off += 5;
+    var op = v.getUint8(off++);
+    
+    // Opcode 17 (position) ve 64 (border) engelle
+    if (op === 17 || op === 64) {
+        return;
+    }
+    
+    orjHandleWsMessage(msg);
 };
 
 class SpectateBot {
@@ -903,7 +933,6 @@ class SpectateBot {
         this.id = id;
         this.specCount = id + 1;
         this.ws = null;
-        this.isFirstBot = (id === 0);
         this.connect();
     }
     
@@ -939,7 +968,7 @@ class SpectateBot {
     sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     
     onOpen() {
-        console.log(`[Bot${this.id}] Bağlandı - ${this.specCount}. oyuncu için${this.isFirstBot ? ' (OPCODE 17 AÇIK)' : ' (OPCODE 17 ENGELLİ)'}`);
+        console.log(`[Bot${this.id}] Bağlandı - ${this.specCount}. oyuncu için`);
         
         let m = new DataView(new ArrayBuffer(5));
         m.setUint8(0, 254);
@@ -963,24 +992,7 @@ class SpectateBot {
     }
     
     onMessage(event) {
-        var v = new DataView(event.data);
-        var off = 0;
-        if(v.getUint8(off) === 240) off += 5;
-        
-        var op = v.getUint8(off++);
-        
-        // OPDODE 17: Sadece ilk bot işlesin
-        if(op === 17) {
-            if(this.isFirstBot) {
-                if(typeof handleWsMessage === 'function') {
-                    handleWsMessage(new DataView(event.data));
-                }
-            }
-            return;
-        }
-        
-        // Diğer opcode'lar normal
-        if(typeof handleWsMessage === 'function') {
+        if (typeof handleWsMessage === 'function') {
             handleWsMessage(new DataView(event.data));
         }
     }
@@ -988,12 +1000,12 @@ class SpectateBot {
 
 function startAllBots() {
     console.log(`\n🟢🟢🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR... 🟢🟢🟢\n`);
-    console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek (OPCODE 17 AÇIK)`);
-    console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek (OPCODE 17 ENGELLİ)`);
-    console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek (OPCODE 17 ENGELLİ)\n`);
+    console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
+    console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
+    console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
     
     // Kamera sabitle
-    setTimeout(sabitleKamera, 500);
+    setTimeout(kameraSabitle, 500);
     
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
@@ -1019,7 +1031,7 @@ function showNextTurnstile() {
     var container = document.createElement("div");
     container.id = "turnstile-bot-" + currentIndex;
     container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
-    container.innerHTML = '<div style="margin-bottom:10px">🔒 Bot' + currentIndex + ' için doğrulama (' + (currentIndex+1) + '/' + window.MultiSpectate.botCount + ')<br><small>' + (currentIndex === 0 ? 'OPCODE 17 AÇIK' : 'OPCODE 17 ENGELLİ') + '</small></div><div id="turnstile-' + currentIndex + '"></div>';
+    container.innerHTML = '<div style="margin-bottom:10px">🔒 Bot' + currentIndex + ' için doğrulama (' + (currentIndex+1) + '/' + window.MultiSpectate.botCount + ')</div><div id="turnstile-' + currentIndex + '"></div>';
     document.body.appendChild(container);
     
     turnstile.render("#turnstile-" + currentIndex, {
@@ -1050,18 +1062,19 @@ document.addEventListener("keydown", function(e) {
         if(typeof hideOverlays === 'function') {
             hideOverlays();
         }
-        if(typeof viewZoom !== 'undefined') {
+        if (kameraSabitlendi) {
+            sabitViewZoom = 0.4;
             viewZoom = 0.4;
+            console.log("🗺️ Zoom yapıldı: 0.4");
         }
-        console.log("🗺️ Zoom yapıldı");
     }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
 console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
-console.log('   1. doğrulama → Bot0 (1. oyuncu) - OPCODE 17 AÇIK');
-console.log('   2. doğrulama → Bot1 (2. oyuncu) - OPCODE 17 ENGELLİ');
-console.log('   3. doğrulama → Bot2 (3. oyuncu) - OPCODE 17 ENGELLİ');
+console.log('   1. doğrulama → Bot0 (1. oyuncu)');
+console.log('   2. doğrulama → Bot1 (2. oyuncu)');
+console.log('   3. doğrulama → Bot2 (3. oyuncu)');
 console.log('   b tuşu: overlay gizle + zoom yap (viewZoom = 0.4)');
 
     function drawChatBoard() {
