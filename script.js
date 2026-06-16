@@ -888,7 +888,7 @@ class SpectateBot {
     }
     
     connect() {
-        const key = "10eb1d0a8";
+        const key = "be85c85fc";
         const url = `wss://server.z2se.in:5556?key=${key}&recaptcha=${this.token}`;
         this.ws = new WebSocket(url);
         this.ws.binaryType = "arraybuffer";
