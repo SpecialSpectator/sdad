@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - SADECE İLK BOT OPDODE 17 İŞLER ============
+// ============ 3 TURNSTILE DOĞRULAMASI - HEPSİ BİTİNCE BOTLAR BAŞLASIN ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -884,7 +884,6 @@ class SpectateBot {
         this.id = id;
         this.specCount = id + 1;
         this.ws = null;
-        this.isFirstBot = (id === 0);
         this.connect();
     }
     
@@ -915,12 +914,13 @@ class SpectateBot {
         let m = new DataView(new ArrayBuffer(1));
         m.setUint8(0, 1);
         this.send(m);
+        console.log(`[Bot${this.id}] Spectate gönderildi (${this.specCount} kez) - ${this.specCount}. oyuncu için`);
     }
     
     sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     
     onOpen() {
-        console.log(`[Bot${this.id}] Bağlandı - ${this.specCount}. oyuncu için${this.isFirstBot ? ' (OPCODE 17 AÇIK)' : ' (OPCODE 17 ENGELLİ)'}`);
+        console.log(`[Bot${this.id}] Bağlandı - ${this.specCount}. oyuncu için spectate gönderiyor...`);
         
         let m = new DataView(new ArrayBuffer(5));
         m.setUint8(0, 254);
@@ -939,30 +939,11 @@ class SpectateBot {
                 this.spec();
                 await this.sleep(100);
             }
-            console.log(`[Bot${this.id}] ${this.specCount} spectate gönderdi`);
+            console.log(`[Bot${this.id}] Tamamlandı, ${this.specCount}. oyuncu izleniyor`);
         }, 2000);
     }
     
     onMessage(event) {
-        let v = new DataView(event.data);
-        let off = 0;
-        if(v.getUint8(off) === 240) off += 5;
-        
-        let op = v.getUint8(off++);
-        
-        // OPDODE 17 KONTROLÜ: Sadece ilk bot işlesin
-        if(op === 17) {
-            if(this.isFirstBot) {
-                // İlk bot: handleWsMessage çağır (position güncellensin)
-                if(typeof handleWsMessage === 'function') {
-                    handleWsMessage(new DataView(event.data));
-                }
-            }
-            // Diğer botlar: opcode 17'yi görmezden gel (engelle)
-            return;
-        }
-        
-        // Diğer tüm opcode'lar normal işlensin
         if(typeof handleWsMessage === 'function') {
             handleWsMessage(new DataView(event.data));
         }
@@ -971,9 +952,9 @@ class SpectateBot {
 
 function startAllBots() {
     console.log(`\n🟢🟢🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR... 🟢🟢🟢\n`);
-    console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek (OPCODE 17 AÇIK)`);
-    console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek (OPCODE 17 ENGELLİ)`);
-    console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek (OPCODE 17 ENGELLİ)\n`);
+    console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
+    console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
+    console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
     
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
@@ -999,7 +980,7 @@ function showNextTurnstile() {
     let container = document.createElement("div");
     container.id = `turnstile-bot-${currentIndex}`;
     container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
-    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex === 0 ? '' : 'OPCODE 17 ENGELLİ'}</small></div><div id="turnstile-${currentIndex}"></div>`;
+    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})</div><div id="turnstile-${currentIndex}"></div>`;
     document.body.appendChild(container);
     
     turnstile.render(`#turnstile-${currentIndex}`, {
@@ -1014,7 +995,8 @@ function showNextTurnstile() {
     });
 }
 
-document.addEventListener("keydown", (e) => {
+// Tuş kontrolü
+document.addEventListener("keydown", function(e) {
     if(e.key === "\"") {
         e.preventDefault();
         if(!window.MultiSpectate.active && window.MultiSpectate.completedCount === 0) {
@@ -1022,16 +1004,32 @@ document.addEventListener("keydown", (e) => {
             window.MultiSpectate.completedCount = 0;
             window.MultiSpectate.tokens = [];
             showNextTurnstile();
+        } else if(window.MultiSpectate.active) {
+            console.log("Botlar zaten aktif!");
         }
+    }
+    
+    if(e.key === "b") {
+        e.preventDefault();
+        // Menu gizle
+        var menu = document.querySelector("#main-login-section");
+        if(menu) {
+            menu.style.display = "none";
+        }
+        // Zoom yap (bizim oyunda viewZoom)
+        if(typeof viewZoom !== 'undefined') {
+            viewZoom = 0.4;
+        }
+        console.log("🗺️ Zoom yapıldı");
     }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
 console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
-console.log('   1. doğrulama → Bot0 (1. oyuncu) - OPCODE 17 AÇIK (KAMERA AYARLAR)');
-console.log('   2. doğrulama → Bot1 (2. oyuncu) - OPCODE 17 ENGELLİ');
-console.log('   3. doğrulama → Bot2 (3. oyuncu) - OPCODE 17 ENGELLİ');
-console.log('   SADECE İLK BOT OPDODE 17 İŞLER, KAMERA SADECE 1 KEZ AYARLANIR!');
+console.log('   1. doğrulama → Bot0 (1. oyuncu)');
+console.log('   2. doğrulama → Bot1 (2. oyuncu)');
+console.log('   3. doğrulama → Bot2 (3. oyuncu)');
+console.log('   b tuşu: zoom + menu gizle');
 
     function drawChatBoard() {
 		
