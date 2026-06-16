@@ -865,14 +865,14 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - SADECE OPDODE 17 ENGELLİ (Kamera manuel sabit) ============
+// ============ 3 BOT - OPDODE 17 ENGELLİ + ZOOM ÇALIŞIYOR ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
 window.MultiSpectate = {
     bots: [],
     started: false,
-    botCount: 2,
+    botCount: 3,
     active: false,
     tokens: [],
     completedCount: 0
@@ -966,7 +966,12 @@ function startAllBots() {
     console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
     console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
     console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
-    console.log(`   OPDODE 17 ENGELLENDİ - Kamera güncellenmeyecek!\n`);
+    console.log(`   OPDODE 17 ENGELLENDİ - Kamera sabit kalacak!\n`);
+    
+    // Zoom'u başlangıçta 1 yap
+    if(typeof zoom !== 'undefined') {
+        zoom = 1;
+    }
     
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
@@ -1023,7 +1028,15 @@ document.addEventListener("keydown", function(e) {
         if(typeof hideOverlays === 'function') {
             hideOverlays();
         }
-        console.log("🗺️ Zoom yapıldı");
+        // ZOOM YAP - zoom değişkenini değiştir
+        if(typeof zoom !== 'undefined') {
+            zoom = 0.4;
+            // viewZoom'u da güncelle
+            if(typeof viewRange === 'function') {
+                viewZoom = viewRange();
+            }
+            console.log("🗺️ Zoom yapıldı: zoom = 0.4");
+        }
     }
 });
 
@@ -1032,7 +1045,8 @@ console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
 console.log('   1. doğrulama → Bot0 (1. oyuncu)');
 console.log('   2. doğrulama → Bot1 (2. oyuncu)');
 console.log('   3. doğrulama → Bot2 (3. oyuncu)');
-console.log('   OPDODE 17 ENGELLENDİ - Kamera güncellenmez!');
+console.log('   OPDODE 17 ENGELLENDİ - Kamera sabit kalacak!');
+console.log('   b tuşu: overlay gizle + zoom yap (zoom = 0.4)');
 
     function drawChatBoard() {
 		
