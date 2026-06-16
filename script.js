@@ -865,31 +865,36 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - ORİJİNAL updateNodes'u DÜZENLE ============
+// ============ 3 BOT - KAMERA SABİT ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
-
-// Orijinal updateNodes'u bul ve değiştir
-// Orijinalde şu satır var:
-// if (1 == playerCells.length) { nodeX = node.x; nodeY = node.y; }
-// Bunu DEĞİŞTİR: sadece ilk oyuncuda bir kere ayarla
 
 // Orijinal updateNodes'u yedekle
 let orjUpdateNodes = updateNodes;
 let kameraSet = false;
+let sabitNodeX = 0;
+let sabitNodeY = 0;
+let sabitViewZoom = 1;
 
-// YENİ updateNodes - kamera değişmez
+// updateNodes'u override et
 updateNodes = function(view, offset) {
-    // Önce orijinali çalıştır
+    // Orijinal updateNodes'u çağır
     orjUpdateNodes(view, offset);
     
-    // Eğer kamera daha önce ayarlanmadıysa ve oyuncu varsa ayarla
+    // Kamera SADECE 1 KEZ ayarlansın
     if(!kameraSet && playerCells.length > 0) {
-        nodeX = playerCells[0].x;
-        nodeY = playerCells[0].y;
-        viewZoom = 1;
+        sabitNodeX = playerCells[0].x;
+        sabitNodeY = playerCells[0].y;
+        sabitViewZoom = 1;
         kameraSet = true;
-        console.log("🗺️ Kamera 1 kez ayarlandı");
+        console.log(`🗺️ Kamera sabitlendi: (${sabitNodeX}, ${sabitNodeY})`);
+    }
+    
+    // Kamerayı SABİTLE (her çağrıda)
+    if(kameraSet) {
+        nodeX = sabitNodeX;
+        nodeY = sabitNodeY;
+        viewZoom = sabitViewZoom;
     }
 };
 
@@ -1033,11 +1038,32 @@ document.addEventListener("keydown", (e) => {
             showNextTurnstile();
         }
     }
+    if(e.key === "b") {
+        e.preventDefault();
+        if(kameraSet) {
+            viewZoom = 0.4;
+            console.log("🗺️ Zoom yapıldı: 0.4");
+        }
+    }
+    if(e.key === "r") {
+        e.preventDefault();
+        if(kameraSet) {
+            nodeX = sabitNodeX;
+            nodeY = sabitNodeY;
+            viewZoom = sabitViewZoom;
+            console.log(`🗺️ Kamera sıfırlandı: (${sabitNodeX}, ${sabitNodeY})`);
+        }
+    }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
-console.log('   3 Turnstile doğrulaması yap, botlar başlasın');
-console.log('   Kamera SADECE 1 KEZ ayarlanacak!');
+console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
+console.log('   1. doğrulama → Bot0 (1. oyuncu)');
+console.log('   2. doğrulama → Bot1 (2. oyuncu)');
+console.log('   3. doğrulama → Bot2 (3. oyuncu)');
+console.log('   KAMERA SABİT!');
+console.log('   b tuşu: zoom yapar');
+console.log('   r tuşu: kamerayı sıfırlar');
 
     function drawChatBoard() {
 		
