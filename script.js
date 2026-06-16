@@ -871,7 +871,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - OPDODE 17 ENGELLİ + ZOOM DÜZGÜN ÇALIŞIYOR ============
+// ============ 3 BOT - OPDODE 17 ENGELLİ + OYUN URL'SİNİ OKU ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -894,8 +894,18 @@ class SpectateBot {
     }
     
     connect() {
-        const key = "e8df32fd2";
-        const url = `wss://server.z2se.in:5556?key=${key}&recaptcha=${this.token}`;
+        var baseUrl = window._multiSpectateGameUrl;
+        
+        if (!baseUrl) {
+            console.log(`[Bot${this.id}] Oyun URL'si bekleniyor...`);
+            setTimeout(() => this.connect(), 500);
+            return;
+        }
+        
+        var url = baseUrl + '&recaptcha=' + this.token;
+        
+        console.log(`[Bot${this.id}] Bağlanıyor: ${url.substring(0, 80)}...`);
+        
         this.ws = new WebSocket(url);
         this.ws.binaryType = "arraybuffer";
         this.ws.onopen = () => this.onOpen();
@@ -955,12 +965,10 @@ class SpectateBot {
         
         var op = v.getUint8(off++);
         
-        // SADECE OPDODE 17 ENGELLENDİ
         if(op === 17) {
             return;
         }
         
-        // Diğer tüm opcode'lar normal işlensin
         if(typeof handleWsMessage === 'function') {
             handleWsMessage(new DataView(event.data));
         }
@@ -969,12 +977,12 @@ class SpectateBot {
 
 function startAllBots() {
     console.log(`\n🟢🟢🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR... 🟢🟢🟢\n`);
+    console.log(`   OYUN URL'Sİ: ${window._multiSpectateGameUrl || 'BEKLENİYOR...'}\n`);
     console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
     console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
     console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
     console.log(`   OPDODE 17 ENGELLENDİ - Kamera sabit kalacak!\n`);
     
-    // Zoom başlangıç değeri
     if(typeof zoom !== 'undefined') {
         zoom = 1;
     }
@@ -1038,28 +1046,26 @@ document.addEventListener("keydown", function(e) {
             hideOverlays();
         }
         
-        // ZOOM YAP - zoom değişkenini değiştir
         if(typeof zoom !== 'undefined') {
-            zoom = 0.03;
-            // viewZoom'u manuel güncelle (viewRange ile)
+            zoom = 0.3;
             if(typeof viewRange === 'function') {
                 viewZoom = viewRange();
             } else {
-                // viewRange yoksa doğrudan viewZoom'a yaz
-                viewZoom = 0.03;
+                viewZoom = 0.3;
             }
-            console.log("🗺️ Zoom yapıldı: zoom = 0.4, viewZoom = " + viewZoom);
+            console.log("🗺️ Zoom yapıldı: zoom = 0.3");
         }
     }
 });
 
 console.log('🟢 HAZIR! " tuşuna bas');
-console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
+console.log('   Önce oyun bağlansın, URL yakalansın.');
+console.log('   Sonra sırayla 3 Turnstile doğrulaması yapacaksın:');
 console.log('   1. doğrulama → Bot0 (1. oyuncu)');
 console.log('   2. doğrulama → Bot1 (2. oyuncu)');
 console.log('   3. doğrulama → Bot2 (3. oyuncu)');
 console.log('   OPDODE 17 ENGELLENDİ - Kamera sabit kalacak!');
-console.log('   b tuşu: overlay gizle + zoom yap (zoom = 0.4)');
+console.log('   b tuşu: overlay gizle + zoom yap (zoom = 0.3)');
 
     function drawChatBoard() {
 		
