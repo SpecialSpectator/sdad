@@ -865,170 +865,128 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 TURNSTILE DOĞRULAMASI - HEPSİ BİTİNCE BOTLAR BAŞLASIN ============
+// ============ 3 BOT - EN BAŞTAKİ ÇALIŞAN VERSİYON ============
 
-console.log("[MultiSpectate] Başlatılıyor...");
+window.Bots = [];
+window.started = false;
+window.botCount = 3;
 
-window.MultiSpectate = {
-    bots: [],
-    started: false,
-    botCount: 3,
-    active: false,
-    tokens: [],
-    completedCount: 0
+window.start = () => {
+    if(window.started) return;
+    window.started = true;
+    
+    const sitekey = "0x4AAAAAAA_Q-HKZIZaP8Hof";
+    const serverUrl = "server.z2se.in:5556";
+    const key = "66423e236";
+    
+    class SpectateBot {
+        constructor(token, id) {
+            this.token = token;
+            this.id = id;
+            this.specCount = id + 1;
+            this.connect();
+        }
+        
+        connect() {
+            const url = `wss://${serverUrl}?key=${key}&recaptcha=${this.token}`;
+            this.ws = new WebSocket(url);
+            this.ws.binaryType = "arraybuffer";
+            this.ws.onopen = () => this.onOpen();
+            this.ws.onmessage = (e) => this.onMessage(e);
+            this.ws.onclose = () => console.log(`Bot${this.id} kapandı`);
+        }
+        
+        Buffer(size) { return new DataView(new ArrayBuffer(size)); }
+        
+        send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
+        
+        sendUint8(op) { let m = this.Buffer(1); m.setUint8(0, op); this.send(m); }
+        
+        sendCaptcha(token) {
+            let m = this.Buffer(1 + token.length * 2);
+            m.setUint8(0, 35);
+            for(let i = 0; i < token.length; i++) {
+                m.setUint16(1 + i * 2, token.charCodeAt(i), true);
+            }
+            this.send(m);
+        }
+        
+        onOpen() {
+            console.log(`Bot${this.id} bağlandı - ${this.specCount}. oyuncu için`);
+            
+            let m = this.Buffer(5);
+            m.setUint8(0, 254);
+            m.setUint32(1, 5, true);
+            this.send(m);
+            
+            m = this.Buffer(5);
+            m.setUint8(0, 255);
+            m.setUint32(1, 123456789, true);
+            this.send(m);
+            
+            this.sendCaptcha(this.token);
+            
+            setTimeout(() => {
+                for(let i = 0; i < this.specCount; i++) {
+                    this.sendUint8(1);
+                }
+                console.log(`Bot${this.id} ${this.specCount} spectate gönderdi`);
+            }, 2000);
+        }
+        
+        onMessage(event) {
+            if(typeof handleWsMessage === 'function') {
+                handleWsMessage(new DataView(event.data));
+            }
+        }
+    }
+    
+    // Her bot için ayrı token al
+    let currentIndex = 0;
+    let tokens = [];
+    
+    function showNextTurnstile() {
+        if(currentIndex >= window.botCount) {
+            console.log(`\n🟢 Tüm tokenlar alındı! ${window.botCount} bot başlatılıyor...\n`);
+            for(let i = 0; i < window.botCount; i++) {
+                setTimeout(() => {
+                    window.Bots.push(new SpectateBot(tokens[i], i));
+                }, i * 500);
+            }
+            return;
+        }
+        
+        console.log(`\n🔵 Bot${currentIndex} için Turnstile doğrulaması (${currentIndex+1}/${window.botCount})...`);
+        
+        let container = document.createElement("div");
+        container.id = `turnstile-bot-${currentIndex}`;
+        container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
+        container.innerHTML = `<div>Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.botCount})<br><small>${currentIndex+1}. oyuncuyu izleyecek</small></div><div id="turnstile-${currentIndex}"></div>`;
+        document.body.appendChild(container);
+        
+        turnstile.render(`#turnstile-${currentIndex}`, {
+            sitekey: sitekey,
+            callback: (token) => {
+                console.log(`✅ Bot${currentIndex} token alındı!`);
+                tokens[currentIndex] = token;
+                container.remove();
+                currentIndex++;
+                showNextTurnstile();
+            }
+        });
+    }
+    
+    showNextTurnstile();
 };
 
-class SpectateBot {
-    constructor(token, id) {
-        this.token = token;
-        this.id = id;
-        this.specCount = id + 1;  // Bot0=1, Bot1=2, Bot2=3
-        this.ws = null;
-        this.connect();
-    }
-    
-    connect() {
-        const key = "66423e236";
-        const url = `wss://server.z2se.in:5556?key=${key}&recaptcha=${this.token}`;
-        this.ws = new WebSocket(url);
-        this.ws.binaryType = "arraybuffer";
-        this.ws.onopen = () => this.onOpen();
-        this.ws.onmessage = (e) => this.onMessage(e);
-        this.ws.onclose = () => console.log(`[Bot${this.id}] Kapandı`);
-    }
-    
-    send(view) { if(this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(view.buffer); }
-    
-    sendUint8(op) { let m = new DataView(new ArrayBuffer(1)); m.setUint8(0, op); this.send(m); }
-    
-    sendCaptcha(token) {
-        let m = new DataView(new ArrayBuffer(1 + token.length * 2));
-        m.setUint8(0, 35);
-        for(let i = 0; i < token.length; i++) {
-            m.setUint16(1 + i * 2, token.charCodeAt(i), true);
-        }
-        this.send(m);
-    }
-    
-    spec() {
-        let m = new DataView(new ArrayBuffer(1));
-        m.setUint8(0, 1);
-        this.send(m);
-        console.log(`[Bot${this.id}] Spectate gönderildi (${this.specCount} kez) - ${this.specCount}. oyuncu için`);
-    }
-    
-    sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-    
-    onOpen() {
-        console.log(`[Bot${this.id}] Bağlandı - ${this.specCount}. oyuncu için spectate gönderiyor...`);
-        
-        let m = new DataView(new ArrayBuffer(5));
-        m.setUint8(0, 254);
-        m.setUint32(1, 5, true);
-        this.send(m);
-        
-        m = new DataView(new ArrayBuffer(5));
-        m.setUint8(0, 255);
-        m.setUint32(1, 123456789, true);
-        this.send(m);
-        
-        this.sendCaptcha(this.token);
-        
-        setTimeout(async () => {
-            for(let i = 0; i < this.specCount; i++) {
-                this.spec();
-                await this.sleep(100);
-            }
-            console.log(`[Bot${this.id}] Tamamlandı, ${this.specCount}. oyuncu izleniyor`);
-        }, 2000);
-    }
-    
-    onMessage(event) {
-        if(typeof handleWsMessage === 'function') {
-            handleWsMessage(new DataView(event.data));
-        }
-    }
-}
-
-function startAllBots() {
-    console.log(`\n🟢🟢🟢 TÜM TOKENLAR ALINDI! ${window.MultiSpectate.botCount} BOT BAŞLATILIYOR... 🟢🟢🟢\n`);
-    console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
-    console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
-    console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
-    
-    window.MultiSpectate.bots = [];
-    for(let i = 0; i < window.MultiSpectate.botCount; i++) {
-        setTimeout(() => {
-            let bot = new SpectateBot(window.MultiSpectate.tokens[i], i);
-            window.MultiSpectate.bots.push(bot);
-            console.log(`✅ Bot${i} başlatıldı (${i+1}. oyuncu için)`);
-        }, i * 500);
-    }
-    window.MultiSpectate.active = true;
-}
-
-function showNextTurnstile() {
-    let currentIndex = window.MultiSpectate.completedCount;
-    
-    if(currentIndex >= window.MultiSpectate.botCount) {
-        startAllBots();
-        return;
-    }
-    
-    console.log(`\n🔵 [${currentIndex + 1}/${window.MultiSpectate.botCount}] Bot${currentIndex} için Turnstile doğrulaması...`);
-    
-    // Container oluştur
-    let container = document.createElement("div");
-    container.id = `turnstile-bot-${currentIndex}`;
-    container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
-    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})</div><div id="turnstile-${currentIndex}"></div>`;
-    document.body.appendChild(container);
-    
-    turnstile.render(`#turnstile-${currentIndex}`, {
-        sitekey: "0x4AAAAAAA_Q-HKZIZaP8Hof",
-        callback: (token) => {
-            console.log(`✅ Bot${currentIndex} için token alındı!`);
-            window.MultiSpectate.tokens[currentIndex] = token;
-            window.MultiSpectate.completedCount++;
-            
-            // Container'ı kaldır
-            container.remove();
-            
-            // Sıradaki Turnstile'ı göster
-            showNextTurnstile();
-        }
-    });
-}
-
-// Tuş kontrolü
 document.addEventListener("keydown", (e) => {
     if(e.key === "\"") {
         e.preventDefault();
-        if(!window.MultiSpectate.active && window.MultiSpectate.completedCount === 0) {
-            console.log("\n🔵 Çift tırnak basıldı! 3 Turnstile doğrulaması başlıyor...\n");
-            window.MultiSpectate.completedCount = 0;
-            window.MultiSpectate.tokens = [];
-            showNextTurnstile();
-        } else if(window.MultiSpectate.active) {
-            console.log("Botlar zaten aktif!");
-        } else if(window.MultiSpectate.completedCount > 0) {
-            console.log(`Zaten ${window.MultiSpectate.completedCount} doğrulama yapıldı, devam ediyor...`);
-        }
-    }
-    if(e.key === "b") {
-        e.preventDefault();
-        if(typeof zoom !== 'undefined') zoom = 0.4;
-        if(typeof setZoom === 'function') setZoom(false);
-        console.log("🗺️ Zoom yapıldı");
+        if(!window.started) window.start();
     }
 });
 
-console.log('🟢 HAZIR! " tuşuna bas');
-console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
-console.log('   1. doğrulama → Bot0 (1. oyuncu)');
-console.log('   2. doğrulama → Bot1 (2. oyuncu)');
-console.log('   3. doğrulama → Bot2 (3. oyuncu)');
-console.log('   3 doğrulama tamamlanınca botlar otomatik başlayacak!');
+console.log('🟢 HAZIR! " tuşuna bas, 3 Turnstile doğrulaması yap');
 
     function drawChatBoard() {
 		
