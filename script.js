@@ -995,7 +995,6 @@ function showNextTurnstile() {
     });
 }
 
-// Tuş kontrolü
 document.addEventListener("keydown", function(e) {
     if(e.key === "\"") {
         e.preventDefault();
@@ -1011,12 +1010,9 @@ document.addEventListener("keydown", function(e) {
     
     if(e.key === "b") {
         e.preventDefault();
-        // Menu gizle
-        var menu = document.querySelector("#main-login-section");
-        if(menu) {
-            menu.style.display = "none";
+        if(typeof hideOverlays === 'function') {
+            hideOverlays();
         }
-        // Zoom yap (bizim oyunda viewZoom)
         if(typeof viewZoom !== 'undefined') {
             viewZoom = 0.4;
         }
@@ -1029,7 +1025,8 @@ console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
 console.log('   1. doğrulama → Bot0 (1. oyuncu)');
 console.log('   2. doğrulama → Bot1 (2. oyuncu)');
 console.log('   3. doğrulama → Bot2 (3. oyuncu)');
-console.log('   b tuşu: zoom + menu gizle');
+console.log('   3 doğrulama tamamlanınca botlar otomatik başlayacak!');
+console.log('   b tuşu: overlay gizle + zoom yap');
 
     function drawChatBoard() {
 		
