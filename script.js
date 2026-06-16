@@ -350,14 +350,14 @@ function loadJS(FILE_URL) {
 			if(szoom)
 			{
 				zoom *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
-				0.4 > zoom && (zoom = 0.4);
-				zoom > 10 / viewZoom && (zoom = 10 / viewZoom)
+				0.02 > zoom && (zoom = 0.02);
+				zoom > 5 / viewZoom && (zoom = 5 / viewZoom)
 			}
 			else
 			{
 				zoom *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
-				0.01 > zoom && (zoom = 0.01);
-				zoom > 4 / viewZoom && (zoom = 4 / viewZoom)
+				0.02 > zoom && (zoom = 0.02);
+				zoom > 5 / viewZoom && (zoom = 5 / viewZoom)
 			}
 		}
     }
@@ -1034,13 +1034,13 @@ document.addEventListener("keydown", function(e) {
         
         // ZOOM YAP - zoom değişkenini değiştir
         if(typeof zoom !== 'undefined') {
-            zoom = 0.01;
+            zoom = 0.4;
             // viewZoom'u manuel güncelle (viewRange ile)
             if(typeof viewRange === 'function') {
                 viewZoom = viewRange();
             } else {
                 // viewRange yoksa doğrudan viewZoom'a yaz
-                viewZoom = 0.01;
+                viewZoom = 0.4;
             }
             console.log("🗺️ Zoom yapıldı: zoom = 0.4, viewZoom = " + viewZoom);
         }
