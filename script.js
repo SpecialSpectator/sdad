@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 BOT - OPDODE 17 ENGELLİ + ZOOM ÇALIŞIYOR ============
+// ============ 3 BOT - OPDODE 17 ENGELLİ + ZOOM DÜZGÜN ÇALIŞIYOR ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -968,9 +968,12 @@ function startAllBots() {
     console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
     console.log(`   OPDODE 17 ENGELLENDİ - Kamera sabit kalacak!\n`);
     
-    // Zoom'u başlangıçta 1 yap
+    // Zoom başlangıç değeri
     if(typeof zoom !== 'undefined') {
         zoom = 1;
+    }
+    if(typeof viewZoom !== 'undefined') {
+        viewZoom = 1;
     }
     
     window.MultiSpectate.bots = [];
@@ -1028,14 +1031,18 @@ document.addEventListener("keydown", function(e) {
         if(typeof hideOverlays === 'function') {
             hideOverlays();
         }
+        
         // ZOOM YAP - zoom değişkenini değiştir
         if(typeof zoom !== 'undefined') {
             zoom = 0.4;
-            // viewZoom'u da güncelle
+            // viewZoom'u manuel güncelle (viewRange ile)
             if(typeof viewRange === 'function') {
                 viewZoom = viewRange();
+            } else {
+                // viewRange yoksa doğrudan viewZoom'a yaz
+                viewZoom = 0.4;
             }
-            console.log("🗺️ Zoom yapıldı: zoom = 0.4");
+            console.log("🗺️ Zoom yapıldı: zoom = 0.4, viewZoom = " + viewZoom);
         }
     }
 });
