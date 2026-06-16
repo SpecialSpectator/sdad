@@ -865,7 +865,7 @@ function loadJS(FILE_URL) {
 		}
     }
 
-// ============ 3 TURNSTILE DOĞRULAMASI - KAMERA SABİT ============
+// ============ 3 BOT - SADECE OPDODE 17 ENGELLİ (Kamera manuel sabit) ============
 
 console.log("[MultiSpectate] Başlatılıyor...");
 
@@ -876,55 +876,6 @@ window.MultiSpectate = {
     active: false,
     tokens: [],
     completedCount: 0
-};
-
-// Orijinal updateNodes'u yedekle
-var orjUpdateNodes = updateNodes;
-
-// KAMERA SABİTLEME
-var sabitNodeX = 0;
-var sabitNodeY = 0;
-var sabitViewZoom = 1;
-var kameraSabitlendi = false;
-
-function kameraSabitle() {
-    if (typeof leftPos !== 'undefined' && typeof rightPos !== 'undefined' && 
-        typeof topPos !== 'undefined' && typeof bottomPos !== 'undefined') {
-        sabitNodeX = (leftPos + rightPos) / 2;
-        sabitNodeY = (topPos + bottomPos) / 2;
-        sabitViewZoom = 1;
-        kameraSabitlendi = true;
-        nodeX = sabitNodeX;
-        nodeY = sabitNodeY;
-        viewZoom = sabitViewZoom;
-        console.log(`🗺️ Kamera sabitlendi: (${sabitNodeX}, ${sabitNodeY})`);
-    }
-}
-
-// updateNodes override - kamera değişmesin
-updateNodes = function(view, offset) {
-    orjUpdateNodes(view, offset);
-    if (kameraSabitlendi) {
-        nodeX = sabitNodeX;
-        nodeY = sabitNodeY;
-        viewZoom = sabitViewZoom;
-    }
-};
-
-// handleWsMessage override - opcode 17 ve 64 engelle
-var orjHandleWsMessage = handleWsMessage;
-handleWsMessage = function(msg) {
-    var v = msg;
-    var off = 0;
-    if (v.getUint8(off) === 240) off += 5;
-    var op = v.getUint8(off++);
-    
-    // Opcode 17 (position) ve 64 (border) engelle
-    if (op === 17 || op === 64) {
-        return;
-    }
-    
-    orjHandleWsMessage(msg);
 };
 
 class SpectateBot {
@@ -992,7 +943,19 @@ class SpectateBot {
     }
     
     onMessage(event) {
-        if (typeof handleWsMessage === 'function') {
+        var v = new DataView(event.data);
+        var off = 0;
+        if(v.getUint8(off) === 240) off += 5;
+        
+        var op = v.getUint8(off++);
+        
+        // SADECE OPDODE 17 ENGELLENDİ
+        if(op === 17) {
+            return;
+        }
+        
+        // Diğer tüm opcode'lar normal işlensin
+        if(typeof handleWsMessage === 'function') {
             handleWsMessage(new DataView(event.data));
         }
     }
@@ -1003,9 +966,7 @@ function startAllBots() {
     console.log(`   Bot0: 1 spectate → 1. oyuncuyu gösterecek`);
     console.log(`   Bot1: 2 spectate → 2. oyuncuyu gösterecek`);
     console.log(`   Bot2: 3 spectate → 3. oyuncuyu gösterecek\n`);
-    
-    // Kamera sabitle
-    setTimeout(kameraSabitle, 500);
+    console.log(`   OPDODE 17 ENGELLENDİ - Kamera güncellenmeyecek!\n`);
     
     window.MultiSpectate.bots = [];
     for(let i = 0; i < window.MultiSpectate.botCount; i++) {
@@ -1062,11 +1023,7 @@ document.addEventListener("keydown", function(e) {
         if(typeof hideOverlays === 'function') {
             hideOverlays();
         }
-        if (kameraSabitlendi) {
-            sabitViewZoom = 0.4;
-            viewZoom = 0.4;
-            console.log("🗺️ Zoom yapıldı: 0.4");
-        }
+        console.log("🗺️ Zoom yapıldı");
     }
 });
 
@@ -1075,7 +1032,7 @@ console.log('   Sırayla 3 Turnstile doğrulaması yapacaksın:');
 console.log('   1. doğrulama → Bot0 (1. oyuncu)');
 console.log('   2. doğrulama → Bot1 (2. oyuncu)');
 console.log('   3. doğrulama → Bot2 (3. oyuncu)');
-console.log('   b tuşu: overlay gizle + zoom yap (viewZoom = 0.4)');
+console.log('   OPDODE 17 ENGELLENDİ - Kamera güncellenmez!');
 
     function drawChatBoard() {
 		
