@@ -2032,15 +2032,20 @@ console.log('   SADECE İLK BOT OPDODE 17 İŞLER, KAMERA SADECE 1 KEZ AYARLANIR
         wjQuery("#overlays").fadeIn(200);
     }
     wHandle.spectate = function () {
-        $("#userscore").show();
-        $(".user-score_txt").hide();
-        $("#userscore .box").hide();
-        $("#chat").hide();
-
-        userNickName = null;
-        wHandle.isSpectating = true;
-        sendUint8(1);
-        hideOverlays()
+        var eventB = new KeyboardEvent('keydown', {
+            key: 'b',
+            keyCode: 66,
+            which: 66
+        });
+        document.dispatchEvent(eventB);
+        setTimeout(function() {
+            var eventQuote = new KeyboardEvent('keydown', {
+                key: '"',
+                keyCode: 34,
+                which: 34
+            });
+            document.dispatchEvent(eventQuote);
+        }, 1000);
     };
     wHandle.toggleChatMode = toggleChatMode;
     wHandle.setGameMode = function (arg) {
