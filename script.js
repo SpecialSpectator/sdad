@@ -999,7 +999,7 @@ function showNextTurnstile() {
     let container = document.createElement("div");
     container.id = `turnstile-bot-${currentIndex}`;
     container.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999999;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px black;z-index:99999;text-align:center";
-    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex === 0 ? 'OPCODE 17 AÇIK' : 'OPCODE 17 ENGELLİ'}</small></div><div id="turnstile-${currentIndex}"></div>`;
+    container.innerHTML = `<div style="margin-bottom:10px">🔒 Bot${currentIndex} için doğrulama (${currentIndex+1}/${window.MultiSpectate.botCount})<br><small>${currentIndex === 0 ? '' : 'OPCODE 17 ENGELLİ'}</small></div><div id="turnstile-${currentIndex}"></div>`;
     document.body.appendChild(container);
     
     turnstile.render(`#turnstile-${currentIndex}`, {
