@@ -1047,7 +1047,7 @@ document.addEventListener("keydown", function(e) {
         }
         
         if(typeof zoom !== 'undefined') {
-            zoom = 0.3;
+            zoom = 0.03;
             if(typeof viewRange === 'function') {
                 viewZoom = viewRange();
             } else {
