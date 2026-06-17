@@ -743,7 +743,7 @@ function loadJS(FILE_URL) {
                 offset += 4;
                 leaderBoard = [];
                 for (i = 0; i < LBplayerNum; ++i) {
-					if(i == 20){
+					if(i == 15){
 						break;
 					}
                     var nodeId = msg.getUint32(offset, true);
