@@ -1051,9 +1051,9 @@ document.addEventListener("keydown", function(e) {
             if(typeof viewRange === 'function') {
                 viewZoom = viewRange();
             } else {
-                viewZoom = 0.3;
+                viewZoom = 0.03;
             }
-            console.log("🗺️ Zoom yapıldı: zoom = 0.3");
+            console.log("🗺️ Zoom yapıldı: zoom = 0.03");
         }
     }
 });
