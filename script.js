@@ -878,7 +878,7 @@ console.log("[MultiSpectate] Başlatılıyor...");
 window.MultiSpectate = {
     bots: [],
     started: false,
-    botCount: 3,
+    botCount: 9,
     active: false,
     tokens: [],
     completedCount: 0
